@@ -1,0 +1,144 @@
+{{ header }}{{ column_left }}
+<div id="content">
+    <div class="page-header">
+        <div class="container-fluid">
+            <div class="float-end">
+                <button type="submit" form="form-language" data-bs-toggle="tooltip" title="{{ button_save }}" class="btn btn-primary">
+                    <i class="fas fa-save"></i>
+                </button>
+                <a href="{{ back }}" data-bs-toggle="tooltip" title="{{ button_back }}" class="btn btn-light">
+                    <i class="fas fa-reply"></i>
+                </a>
+            </div>
+            <h1>{{ heading_title }}</h1>
+            <ol class="breadcrumb">
+            {% for breadcrumb in breadcrumbs %}
+                <li class="breadcrumb-item"><a href="{{ breadcrumb.href }}">{{ breadcrumb.text }}</a></li>
+            {% endfor %}
+            </ol>
+        </div>
+    </div>
+    {% if read_error %}
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col">
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    {{ error_read }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{{ text_close }}"></button>
+                  </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    <div class="container-fluid">
+        <div class="card">
+            <div class="card-header"><i class="fas fa-pencil-alt"></i> {{ text_edit }}</div>
+            <div class="card-body px-xl-4">
+                <form id="form-language" action="{{ save }}" method="post" data-oc-toggle="ajax">
+                    <div class="row gx-xl-5">
+                    {% if _context[settings.admin_dir] %}
+                        <div class="col-xl-6">
+                            <h2 class="fs-4 mb-3">{{ text_dir_title }}</h2>
+                            <p class="fst-italic">{{ text_dir_notice }}</p>
+                            <table id="directories" class="table table-bordered">
+                                <thead>
+                                    <tr class="table-active">
+                                        <td class="text-start">{{ text_dir_admin }}</td>
+                                        <td class="text-start">{{ text_dir_public }}</td>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="text-start">{{ _context[settings.admin_dir] }}</td>
+                                        <td class="text-start">{{ _context[settings.public_dir] ?: text_dir_root }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    {% endif %}
+                        <div class="col-xl-6 mt-3 mt-xl-0">
+                            <h2 class="fs-4 mb-3">{{ text_status_title }}</h2>
+                            <p class="fst-italic mb-2">{{ text_status_notice }}</p>
+                            <div class="d-flex">
+                                <label for="input-status" class="col-form-label me-3">{{ entry_status }}</label>
+                                <div class="form-check form-switch form-switch-lg">
+                                    <input type="checkbox" name="{{ settings.status }}" value="1" id="input-status" class="form-check-input"{% if _context[settings.status] %} checked{% endif %}{% if read_error %} disabled{% endif %}/>
+                                </div>
+                            </div>
+                            <p class="mt-2">{{ text_status_info }}</p>
+                        </div>
+                        <div class="col-12 mt-3">
+                        {% if hosts %}
+                            <hr>
+                            <h2 class="fs-4 mb-3">{{ text_hosts_title }}</h2>
+                            <div class="table-responsive">
+                                <table id="hosts" class="table table-bordered table-hover">
+                                    <thead>
+                                        <tr>
+                                            <td class="text-start">{{ entry_host_protocol }}</td>
+                                            <td class="text-start">{{ entry_hostname }}</td>
+                                            <td></td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                    {% set host_row = 0 %}
+                                    {% for host in hosts %}
+                                        <tr id="host-row-{{ host_row }}">
+                                            <td class="text-start">
+                                                <select name="host[{{ host_row }}][protocol]" class="form-select">
+                                                    <option value="https"{% if host.protocol is same as "https" %} selected{% endif %}>{{ entry_https }}</option>
+                                                    <option value="http"{% if host.protocol is same as "http" %} selected{% endif %}>{{ entry_http }}</option>
+                                                </select>
+                                            </td>
+                                            <td class="text-start">
+                                                <input type="text" name="host[{{ host_row }}][hostname]" value="{{ host.hostname }}" placeholder="{{ entry_hostname_desc }}" class="form-control"/>
+                                            </td>
+                                            <td class="text-end">
+                                            {% if host.default %}
+                                                <p class="mb-0"><strong>{{ entry_default }}</strong></p>
+                                            {% else %}
+                                                <button type="button" onclick="$('#host-row-{{ host_row }}').remove()" data-bs-toggle="tooltip" title="{{ button_host_remove }}" class="btn btn-danger"><i class="fa-solid fa-minus-circle"></i></button>
+                                            {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% set host_row = host_row + 1 %}
+                                    {% endfor %}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <td colspan="2"></td>
+                                            <td class="text-end">
+                                                <button type="button" id="button-host-add" data-bs-toggle="tooltip" title="{{ button_host_add }}" class="btn btn-primary"><i class="fa-solid fa-plus-circle"></i></button>
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        {% endif %}
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<script type="text/javascript"><!--
+let host_row = {{ host_row }};
+
+$('#button-host-add').on('click', function () {
+    html = '<tr id="host-row-' + host_row + '">';
+    html += '   <td class="text-start"><select name="host[' + host_row + '][protocol]" class="form-select">';
+    html += '       <option value="https">{{ entry_https|escape('js') }}</option>'
+    html += '       <option value="http">{{ entry_http|escape('js') }}</option>'
+    html += '   </select></td>';
+    html += '   <td class="text-start"><input type="text" name="host[' + host_row + '][hostname]" placeholder="{{ entry_hostname_desc|escape('js') }}" class="form-control"/></td>';
+    html += '   <td class="text-end"><button type="button" onclick="$(\'#host-row-' + host_row + '\').remove()" data-bs-toggle="tooltip" title="{{ button_host_remove|escape('js') }}" class="btn btn-danger"><i class="fa-solid fa-minus-circle"></i></button></td>';
+    html += '</tr>';
+
+    $('#hosts tbody').append(html);
+
+    host_row++;
+});
+//--></script>
+{{ footer }}
