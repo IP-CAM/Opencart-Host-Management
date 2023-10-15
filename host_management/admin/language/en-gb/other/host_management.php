@@ -4,10 +4,12 @@ $_['heading_title']        = 'Host Management';
 
 // Text
 $_['text_extension']       = 'Extensions';
-$_['text_success_admin']   = 'You have changed admin Ngrok Tunneling!';
-$_['text_success_catalog'] = 'You have changed catalog Ngrok Tunneling!';
+$_['text_success']         = 'You have changed Host Management!';
 $_['text_close']           = 'Close';
 $_['text_edit']            = 'Manage Hosts';
+$_['text_host']            = 'Host';
+$_['text_admin']           = 'Admin';
+$_['text_catalog']         = 'Catalog';
 $_['text_dir_title']       = 'Directories';
 $_['text_dir_notice']      = 'Before enabling, check if admin and public directories are correct.';
 $_['text_dir_admin']       = 'Admin directory';
@@ -37,8 +39,20 @@ $_['button_host_remove' ]  = 'Remove host';
 
 // Error
 $_['error_permission']     = 'Warning: You do not have permission to modify security settings!';
-$_['error_read']           = '<strong>Error: </strong> Reading default configuration failed. Check
-                              your admin <i>config.php</i> file syntax.';
+$_['error_warning']        = 'Warning: Please check the form carefully for errors!';
+$_['error_write']          = 'Warning: Could not get write access for: %s file.!';
+$_['error_read']           = '<strong>Error: </strong> Reading default configuration failed.';
+$_['error_protocol']       = 'Invalid %s protocol. Only http and https are allowed.';
+$_['error_hostname']       = 'Invalid %s hostname. Lowercase letters, numbers, hyphens and dots are
+                              allowed. It must start and end with leter or number.';
+$_['error_dir']            = 'Invalid %s directory. Letters, numbers, hyphens, underscores and
+                              forward slashes are allowed.';
+$_['error_same']           = 'Server and catalog must have same protocol and hostname.';
+$_['error_default_count']  = 'Warning: You must have one default host!';
+$_['error_notice']         = 'Check your admin <i>config.php</i> file syntax.';
+$_['error_http_server']    = 'Could not match "HTTP_SERVER" definition!';
+$_['error_http_catalog']   = 'Could not match "HTTP_CATALOG" definition!';
+$_['error_php_tag']        = 'Could not match "php" opening tag!';
 
 // Messages
 $_['msg_error_prefix']     = 'Error: ';
