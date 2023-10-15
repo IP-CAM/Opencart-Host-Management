@@ -5,6 +5,9 @@ namespace Opencart\Admin\Model\Extension\HostManagement\Other;
 use Opencart\System\Engine\Model;
 
 
+/**
+ * Host management extension model.
+ */
 class HostManagement extends Model
 {
     /**
@@ -63,16 +66,83 @@ class HostManagement extends Model
     }
 
     /**
+     * Inserts multiple host data into DB.
+     *
+     * @param array $data
+     * @return void
+     */
+    public function insertMany(array $data): void
+    {
+        usort($data, function($a, $b) {
+            return (bool)$a['default'] ? -1 : ((bool)$b['default'] ? 1 : 0);
+        });
+
+        $query = "INSERT INTO `" . DB_PREFIX . static::$table_name . "`
+                (`protocol`, `hostname`, `default`) VALUES";
+
+        for ($i = 0; $i < count($data); $i++) {
+            $query .= $i === 0 ? ' (' : ', (';
+            $query .= "'" . $this->db->escape($data[$i]['protocol']) . "'";
+            $query .= ", '" . $this->db->escape($data[$i]['hostname']) . "'";
+            $query .= ", '" . (bool)$data[$i]['default'] . "')";
+        }
+
+        $this->db->query($query);
+    }
+
+    /**
      * Gets all hosts from DB.
      *
      * @return array|bool
      */
-    public function all(): array|bool
+    public function getAll(): array|bool
     {
         $query = "SELECT * FROM `" . DB_PREFIX . static::$table_name . "`";
 
         $result = $this->db->query($query);
 
         return is_object($result) ? $result->rows : $result;
+    }
+
+    /**
+     * Gets default host from DB.
+     *
+     * @return array|bool
+     */
+    public function getDefault(): array|bool
+    {
+        $query = "SELECT * FROM `" . DB_PREFIX . static::$table_name . "`";
+        $query .= " WHERE `default` = 1";
+
+        $result = $this->db->query($query);
+
+        return is_object($result) ? $result->row : $result;
+    }
+
+    /**
+     * Updates default host data.
+     *
+     * @return bool
+     */
+    public function updateDefault(array $data): bool
+    {
+        $query = "UPDATE `" . DB_PREFIX . static::$table_name . "` SET
+                `protocol` = '" . $this->db->escape($data['protocol']) . "',
+                `hostname` = '" . $this->db->escape($data['hostname']) . "'
+                WHERE `default` = 1";
+
+        return $this->db->query($query);
+    }
+
+    /**
+     * Truncates DB table.
+     *
+     * @return void
+     */
+    public function truncate():void
+    {
+        $query = "TRUNCATE `" . DB_PREFIX . static::$table_name . "`";
+
+        $this->db->query($query);
     }
 }
