@@ -24,7 +24,7 @@
             <div class="col">
                 <div class="alert alert-danger alert-dismissible fade show" role="alert">
                     <i class="fa-solid fa-circle-exclamation"></i>
-                    {{ error_read }}
+                    {{ read_error }} {{ error_notice }}
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{{ text_close }}"></button>
                   </div>
             </div>
@@ -63,7 +63,8 @@
                             <div class="d-flex">
                                 <label for="input-status" class="col-form-label me-3">{{ entry_status }}</label>
                                 <div class="form-check form-switch form-switch-lg">
-                                    <input type="checkbox" name="{{ settings.status }}" value="1" id="input-status" class="form-check-input"{% if _context[settings.status] %} checked{% endif %}{% if read_error %} disabled{% endif %}/>
+                                    <input id="input-status" type="checkbox" name="{{ settings.status }}" value="1" class="form-check-input"{% if _context[settings.status] %} checked{% endif %}{% if read_error %} disabled{% endif %}/>
+                                    <div id="error-status" class="invalid-feedback"></div>
                                 </div>
                             </div>
                             <p class="mt-2">{{ text_status_info }}</p>
@@ -85,21 +86,24 @@
                                     {% set host_row = 0 %}
                                     {% for host in hosts %}
                                         <tr id="host-row-{{ host_row }}">
-                                            <td class="text-start">
-                                                <select name="host[{{ host_row }}][protocol]" class="form-select">
+                                            <td class="text-start align-top">
+                                                <select id="input-protocol-{{ host_row }}" name="hosts[{{ host_row }}][protocol]" class="form-select">
                                                     <option value="https"{% if host.protocol is same as "https" %} selected{% endif %}>{{ entry_https }}</option>
                                                     <option value="http"{% if host.protocol is same as "http" %} selected{% endif %}>{{ entry_http }}</option>
                                                 </select>
+                                                <div id="error-protocol-{{ host_row }}" class="invalid-feedback"></div>
                                             </td>
-                                            <td class="text-start">
-                                                <input type="text" name="host[{{ host_row }}][hostname]" value="{{ host.hostname }}" placeholder="{{ entry_hostname_desc }}" class="form-control"/>
+                                            <td class="text-start align-top">
+                                                <input id="input-hostname-{{ host_row }}" type="text" name="hosts[{{ host_row }}][hostname]" value="{{ host.hostname }}" placeholder="{{ entry_hostname_desc }}" class="form-control"/>
+                                                <div id="error-hostname-{{ host_row }}" class="invalid-feedback"></div>
                                             </td>
-                                            <td class="text-end">
+                                            <td class="text-end align-top">
                                             {% if host.default %}
                                                 <p class="mb-0"><strong>{{ entry_default }}</strong></p>
                                             {% else %}
                                                 <button type="button" onclick="$('#host-row-{{ host_row }}').remove()" data-bs-toggle="tooltip" title="{{ button_host_remove }}" class="btn btn-danger"><i class="fa-solid fa-minus-circle"></i></button>
                                             {% endif %}
+                                                <input type="hidden" name="hosts[{{ host_row }}][default]" value="{{ host.default }}"/>
                                             </td>
                                         </tr>
                                         {% set host_row = host_row + 1 %}
@@ -124,16 +128,25 @@
     </div>
 </div>
 <script type="text/javascript"><!--
-let host_row = {{ host_row }};
+let host_row = {{ host_row ?: '0' }};
 
 $('#button-host-add').on('click', function () {
     html = '<tr id="host-row-' + host_row + '">';
-    html += '   <td class="text-start"><select name="host[' + host_row + '][protocol]" class="form-select">';
-    html += '       <option value="https">{{ entry_https|escape('js') }}</option>'
-    html += '       <option value="http">{{ entry_http|escape('js') }}</option>'
-    html += '   </select></td>';
-    html += '   <td class="text-start"><input type="text" name="host[' + host_row + '][hostname]" placeholder="{{ entry_hostname_desc|escape('js') }}" class="form-control"/></td>';
-    html += '   <td class="text-end"><button type="button" onclick="$(\'#host-row-' + host_row + '\').remove()" data-bs-toggle="tooltip" title="{{ button_host_remove|escape('js') }}" class="btn btn-danger"><i class="fa-solid fa-minus-circle"></i></button></td>';
+    html += '   <td class="text-start align-top">';
+    html += '       <select id="input-protocol-' + host_row + '" name="hosts[' + host_row + '][protocol]" class="form-select">';
+    html += '           <option value="https">{{ entry_https|escape('js') }}</option>';
+    html += '           <option value="http">{{ entry_http|escape('js') }}</option>';
+    html += '       </select>';
+    html += '       <div id="error-protocol-' + host_row + '" class="invalid-feedback"></div>';
+    html += '   </td>';
+    html += '   <td class="text-start align-top">';
+    html += '       <input id="input-hostname-' + host_row + '" type="text" name="hosts[' + host_row + '][hostname]" placeholder="{{ entry_hostname_desc|escape('js') }}" class="form-control"/></td>';
+    html += '       <div id="error-hostname-' + host_row + '" class="invalid-feedback"></div>';
+    html += '   </td>';
+    html += '   <td class="text-end align-top">';
+    html += '       <button type="button" onclick="$(\'#host-row-' + host_row + '\').remove()" data-bs-toggle="tooltip" title="{{ button_host_remove|escape('js') }}" class="btn btn-danger"><i class="fa-solid fa-minus-circle"></i></button>';
+    html += '       <input type="hidden" name="hosts[' + host_row + '][default]" value="0"/>';
+    html += '   </td>';
     html += '</tr>';
 
     $('#hosts tbody').append(html);
