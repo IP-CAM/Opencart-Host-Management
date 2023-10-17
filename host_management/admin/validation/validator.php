@@ -53,50 +53,14 @@ class Validator
     }
 
     /**
-     * Checks if server and catalog data arrays are set.
-     *
-     * @param array|null $hosts
-     * @return bool
-     */
-    public function hasConfigData(?array $hosts): bool
-    {
-        return is_array($hosts)
-            && isset($hosts['server'], $hosts['catalog'])
-            && is_array($hosts['server'])
-            && is_array($hosts['catalog']);
-    }
-
-    /**
      * Checks if server and catalog have same protcol and hostname.
      *
      * @param array $hosts
-     * @return boolean
+     * @return bool
      */
     public function hasSameHosts(array $hosts): bool
     {
         return $hosts['server']['protocol'] === $hosts['catalog']['protocol']
             && $hosts['server']['hostname'] === $hosts['catalog']['hostname'];
-    }
-
-    /**
-     * Validates data read from admin config file.
-     *
-     * @param array|null $hosts
-     * @return boolean
-     */
-    public function isValidConfigRead(?array $hosts): bool
-    {
-        if (!$this->hasConfigData($hosts)) return false;
-
-        if (
-            !$this->isValidProtocol($hosts['server']['protocol'])
-            || !$this->isValidHostname($hosts['server']['hostname'])
-            || !$this->isValidAdminDir($hosts['server']['dir'])
-            || !$this->isValidProtocol($hosts['catalog']['protocol'])
-            || !$this->isValidHostname($hosts['catalog']['hostname'])
-            || !$this->isValidPublicDir($hosts['catalog']['dir'])
-        ) return false;
-
-        if (!$this->hasSameHosts($hosts)) return false;
     }
 }
