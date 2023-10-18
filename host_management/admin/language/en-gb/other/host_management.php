@@ -10,7 +10,7 @@ $_['text_close']           = 'Close';
 $_['text_edit']            = 'Manage Hosts';
 $_['text_host']            = 'Host';
 $_['text_admin']           = 'Admin';
-$_['text_catalog']         = 'Catalog';
+$_['text_public']          = 'Public';
 $_['text_dir_title']       = 'Directories';
 $_['text_dir_notice']      = 'Before enabling, check if admin and public directories are correct.';
 $_['text_dir_admin']       = 'Admin directory';
@@ -39,13 +39,14 @@ $_['button_host_remove' ]  = 'Remove host';
 
 
 // Error
-$_['error_permission']     = 'Warning: You do not have permission to modify security settings!';
+$_['error_perm_other']     = 'Warning: You do not have permission to modify "other" extensions!';
+$_['error_perm_security']  = 'Warning: You do not have permission to modify security settings!';
 $_['error_warning']        = 'Warning: Please check the form carefully for errors!';
 $_['error_file_access']    = 'Warning: Could not get access for: %s file.!';
 $_['error_read_access']    = 'Warning: Could not get read access for: %s file.!';
 $_['error_write_access']   = 'Warning: Could not get write access for: %s file.!';
 $_['error_read']           = '<strong>Error: </strong> Reading admin config failed. Could not match
-                              protocol, hostname and directory.';
+                              protocol, hostname and directories.';
 $_['error_protocol']       = 'Invalid protocol. Only http and https are allowed.';
 $_['error_hostname']       = 'Invalid hostname. Lowercase letters, numbers, hyphens and dots are
                               allowed. It must start and end with leter or number.';
