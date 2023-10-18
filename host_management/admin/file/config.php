@@ -111,24 +111,24 @@ class Config
      */
     protected function generateUrls(array $hosts): array
     {
-        $default = '';
-        $all = '$hm_urls = [';
+        $result = [];
+        $urls = [];
 
-        for ($i = 0; $i < count($hosts); $i++) { 
-            $host = $hosts[$i];
-            $url = $host['protocol'] . '://' . $host['hostname'] . '/';
+        foreach ($hosts as $host) {
+            $url = '\'' . $host['protocol'] . '://' . $host['hostname'] . '/\'';
 
             if (isset($host['default']) && $host['default']) {
-                $default = '$hm_default = \'' . $url . '\'';
+                $result['default'] = '$hm_default = ' . $url;
             }
 
-            $all .= ($i !== 0) ? ',' . PHP_EOL : PHP_EOL;
-            $all .= '    \'' . $url . '\'';
+            $urls[] = $url;
         }
-        
-        $all .= PHP_EOL . ']';
 
-        return [ 'default' => $default, 'all' => $all ];
+        $result['all'] = '$hm_urls = [' . PHP_EOL . '    ';
+        $result['all'] .= implode(',' . PHP_EOL . '    ', $urls);
+        $result['all'] .= PHP_EOL . ']';
+
+        return $result;
     }
 
     /**
@@ -235,20 +235,20 @@ class Config
         if (!$file) return null;
 
         $serverPattern =<<<'EOT'
-        /define\s*\(
-        \s*[\"\']HTTP_SERVER[\'\"]\s*\,
-        \s*[\'\"](?<protocol>http|https)\:\/\/(?<hostname>[\w\d\-\.]+)\/(?<dir>[^\'\"]+)[\'\"]\s*
-        \)/mx
-        EOT;
+            /define\s*\(
+            \s*[\"\']HTTP_SERVER[\'\"]\s*\,
+            \s*[\'\"](?<protocol>http|https)\:\/\/(?<hostname>[\w\d\-\.]+)\/(?<dir>[^\'\"]+)[\'\"]\s*
+            \)/mx
+            EOT;
 
         $catalogPattern =<<<'EOT'
-        /define\s*\(
-        \s*[\"\']HTTP_CATALOG[\'\"]\s*\,
-        \s*[\'\"](?<protocol>http|https)\:\/\/(?<hostname>[\w\d\-\.]+)\/(?<dir>[^\'\"]+)?[\'\"]\s*
-        \)/mx
-        EOT;
+            /define\s*\(
+            \s*[\"\']HTTP_CATALOG[\'\"]\s*\,
+            \s*[\'\"](?<protocol>http|https)\:\/\/(?<hostname>[\w\d\-\.]+)\/(?<dir>[^\'\"]+)?[\'\"]\s*
+            \)/mx
+            EOT;
 
-        $configStr = $file->fread($file->getSize());
+        $configStr = (string)$file->fread($file->getSize());
         $file = null;
         $hosts = [];
         $server = [];

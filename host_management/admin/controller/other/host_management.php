@@ -153,41 +153,41 @@ class HostManagement extends Controller
      *
      * @return array Config data.
      */
-    protected function saveConfigFileSettings(): array
+    protected function saveConfigFileData(): array
     {
-        $hosts = $this->file->readConfig(DIR_APPLICATION . 'config.php');
+        $config_data = $this->file->readConfig(static::$adminPath);
 
-        if (!$hosts) {
+        if (!$config_data) {
             $this->messages->mergeErrors($this->file->getErrors());
 
             return [];
         }
 
-        if (!$this->validator->hasSameHosts($hosts)) {
+        if (!$this->validator->hasSameHosts($config_data)) {
             $this->messages->error('error_same');
 
             return [];
         }
 
-        if (!$this->validator->isValidProtocol($hosts['server']['protocol'])) {
+        if (!$this->validator->isValidProtocol($config_data['server']['protocol'])) {
             $this->messages->error('error_protocol');
 
             return [];
         }
 
-        if (!$this->validator->isValidHostname($hosts['server']['hostname'])) {
+        if (!$this->validator->isValidHostname($config_data['server']['hostname'])) {
             $this->messages->error('error_hostname');
 
             return [];
         }
 
-        if (!$this->validator->isValidAdminDir($hosts['server']['dir'])) {
+        if (!$this->validator->isValidAdminDir($config_data['server']['dir'])) {
             $this->messages->error('error_dir', 'warning', 'text_admin');
 
             return [];
         }
 
-        if (!$this->validator->isValidPublicDir($hosts['catalog']['dir'])) {
+        if (!$this->validator->isValidPublicDir($config_data['catalog']['dir'])) {
             $this->messages->error('error_dir', 'warning', 'text_public');
 
             return [];
@@ -198,22 +198,22 @@ class HostManagement extends Controller
         $this->model_setting_setting->editSetting(
             static::$code,
             [
-                static::$settings['admin_dir'] => $hosts['server']['dir'],
-                static::$settings['public_dir'] => $hosts['catalog']['dir']
+                static::$settings['admin_dir'] => $config_data['server']['dir'],
+                static::$settings['public_dir'] => $config_data['catalog']['dir']
             ]
         );
         
         if (!empty($this->model->getDefault())) {
-            $this->model->updateDefault($hosts['server']);
+            $this->model->updateDefault($config_data['server']);
         } else {
             $this->model->insert([
-                'protocol' => $hosts['server']['protocol'],
-                'hostname' => $hosts['server']['hostname'],
+                'protocol' => $config_data['server']['protocol'],
+                'hostname' => $config_data['server']['hostname'],
                 'default' => true
             ]);
         }
 
-        return $hosts;
+        return $config_data;
     }
 
     /**
@@ -256,7 +256,9 @@ class HostManagement extends Controller
      */
     protected function configFilesWritable(): bool
     {
-        foreach ([ static::$adminPath, static::$publicPath ] as $path) {
+        $file_paths = [ static::$adminPath, static::$publicPath ];
+
+        foreach ($file_paths as $path) {
             if (!is_writable($path)) {
                 $this->messages->error('error_write_access', 'warning', $path);
     
@@ -372,14 +374,14 @@ class HostManagement extends Controller
     public function install(): void
     {
         if (!$this->user->hasPermission('modify', 'extension/other')) {
-            $this->log($this->language->get('error_permission'));
+            $this->log($this->language->get('error_perm_other'));
 
             return;
         }
 
         $this->model->install();
 
-        $this->saveConfigFileSettings();
+        $this->saveConfigFileData();
     }
 
     /**
@@ -390,11 +392,12 @@ class HostManagement extends Controller
     public function uninstall(): void
     {
         if (!$this->user->hasPermission('modify', 'extension/other')) {
-            $this->log($this->language->get('error_permission'));
+            $this->log($this->language->get('error_perm_other'));
 
             return;
         }
 
+        // We need to check files, OC deletes extension settings before running controller uninstall
         if (!empty($this->config->get(static::$settings['status']))) {
             $hosts = $this->model->getAll();
             $dirs = [
@@ -443,26 +446,26 @@ class HostManagement extends Controller
         $data['save'] =
             $this->url->link(static::$route . $separator . 'save', $user_token);
 
-        $data['settings'] = static::$settings;
         $data['hosts'] = $this->model->getAll();
+        $data['settings'] = static::$settings;
 
         foreach (static::$settings as $setting_db_key) {
             $data[$setting_db_key] = $this->config->get($setting_db_key);
         }
 
-        if (empty($data[static::$settings['admin_dir']]) || empty($data['hosts'])) {
-            $config_data = $this->saveConfigFileSettings();
+        if (
+            !isset($data[static::$settings['admin_dir']], $data[static::$settings['public_dir']])
+            || empty($data['hosts'])
+        ) {
+            $config_data = $this->saveConfigFileData();
 
-            if (!empty($config_data)) {
-                $data['hosts'] = [ $config_data['server'], $config_data['catalog'] ];
-                $data[static::$settings['admin_dir']] = $config_data['server']['dir'];
-                $data[static::$settings['public_dir']] = $config_data['catalog']['dir'];
-            } else {
+            if (empty($config_data)) {
                 $data['read_error'] = $this->messages->getFirstError();
-                $data['hosts'] = [];
-                $data[static::$settings['admin_dir']] = '';
-                $data[static::$settings['public_dir']] = '';
             }
+
+            $data['hosts'] = $this->model->getAll();
+            $data[static::$settings['admin_dir']] = $config_data['server']['dir'] ?? '';
+            $data[static::$settings['public_dir']] = $config_data['catalog']['dir'] ?? '';
         }
 
         $data['header'] = $this->load->controller('common/header');
@@ -480,7 +483,7 @@ class HostManagement extends Controller
     public function save(): void
     {
         if (!$this->user->hasPermission('modify', 'common/security')) {
-            $this->messages->error('error_permission');
+            $this->messages->error('error_perm_security');
             $this->log($this->messages->getFirstError());
             $this->jsonResponse();
 
@@ -502,38 +505,37 @@ class HostManagement extends Controller
 
         $this->messages->success('text_success_hosts');
 
-
-        $old_status = empty($this->config->get(static::$settings['status'])) ? '0' : '1';
-        $requested_status = empty($this->request->post[static::$settings['status']]) ? '0' : '1';
-
         $dirs = [
             'admin' => $this->config->get(static::$settings['admin_dir']),
             'public' => $this->config->get(static::$settings['public_dir'])
         ];
-        $status = $old_status;
+
+        $was_enabled = empty($this->config->get(static::$settings['status']));
+        $requested = empty($this->request->post[static::$settings['status']]);
+        $is_enabled = $was_enabled;
         
-        if ($requested_status === '1' && $old_status === '0') {
-            $status = $this->enable($hosts, $dirs) ? '1' : '0';
-        } else if ($requested_status === '1' && $old_status === '1') {
+        if (!$was_enabled && $requested) {
+            $is_enabled = $this->enable($hosts, $dirs);
+        } else if ($was_enabled && $requested) {
             $this->update($hosts);
-        } else if ($requested_status === '0' && $old_status === '1') {
-            $status = $this->disable($hosts, $dirs) ? '0' : '1';
+        } else if ($was_enabled && !$requested) {
+            $is_enabled = !$this->disable($hosts, $dirs);
         }
 
-        if ($status !== $old_status) {
+        if ($is_enabled !== $was_enabled) {
             $this->load->model('setting/setting');
-    
-            $this->model_setting_setting->editSetting(
-                static::$code,
-                [
-                    static::$settings['admin_dir'] => $dirs['admin'],
-                    static::$settings['public_dir'] => $dirs['public'],
-                    static::$settings['status'] => $status
-                ]
-            );
+
+            $settings = [
+                static::$settings['admin_dir'] => $dirs['admin'],
+                static::$settings['public_dir'] => $dirs['public']
+            ];
+
+            if ($is_enabled) $settings['status'] = true;
+
+            $this->model_setting_setting->editSetting(static::$code, $settings);
         }
 
-        if ($status !== $requested_status) {
+        if ($is_enabled !== $requested) {
             $this->messages->error('error_status', 'status');
         }
 
