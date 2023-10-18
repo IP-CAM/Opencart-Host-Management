@@ -3,9 +3,11 @@
     <div class="page-header">
         <div class="container-fluid">
             <div class="float-end">
+                {% if not read_error %}
                 <button type="submit" form="form-language" data-bs-toggle="tooltip" title="{{ button_save }}" class="btn btn-primary">
                     <i class="fas fa-save"></i>
                 </button>
+                {% endif %}
                 <a href="{{ back }}" data-bs-toggle="tooltip" title="{{ button_back }}" class="btn btn-light">
                     <i class="fas fa-reply"></i>
                 </a>
