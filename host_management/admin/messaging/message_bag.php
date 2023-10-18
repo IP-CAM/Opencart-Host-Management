@@ -46,10 +46,10 @@ class MessageBag
      * Translates message and applies replacements.
      *
      * @param string $message
-     * @param array ...$replacements
+     * @param string|int|float ...$replacements
      * @return string
      */
-    protected function prepare(string $message, array ...$replacements): string
+    protected function prepare(string $message, string|int|float ...$replacements): string
     {
         $message = $this->language->get($message);
 
@@ -67,10 +67,14 @@ class MessageBag
      *
      * @param string $message
      * @param string $key
-     * @param array ...$replacements
+     * @param string|int|float ...$replacements
      * @return void
      */
-    public function error(string $message, string $key = 'warning', array ...$replacements): void
+    public function error(
+        string $message,
+        string $key = 'warning',
+        string|int|float ...$replacements
+    ): void
     {
         $message = $this->prepare($message, ...$replacements);
 
@@ -106,10 +110,10 @@ class MessageBag
      * Inserts success message into messages collection.
      *
      * @param string $message
-     * @param array ...$replacements
+     * @param string|int|float ...$replacements
      * @return void
      */
-    public function success(string $message, array ...$replacements): void
+    public function success(string $message, string|int|float ...$replacements): void
     {
         $this->success_msg[] = $this->prepare($message, ...$replacements);
     }
