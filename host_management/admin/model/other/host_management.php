@@ -93,30 +93,30 @@ class HostManagement extends Model
     /**
      * Gets all hosts from DB.
      *
-     * @return array|bool
+     * @return array
      */
-    public function getAll(): array|bool
+    public function getAll(): array
     {
         $query = "SELECT * FROM `" . DB_PREFIX . static::$table_name . "`";
 
         $result = $this->db->query($query);
 
-        return is_object($result) ? $result->rows : $result;
+        return is_object($result) ? $result->rows : [];
     }
 
     /**
      * Gets default host from DB.
      *
-     * @return array|bool
+     * @return array|null
      */
-    public function getDefault(): array|bool
+    public function getDefault(): ?array
     {
         $query = "SELECT * FROM `" . DB_PREFIX . static::$table_name . "`";
         $query .= " WHERE `default` = 1";
 
         $result = $this->db->query($query);
 
-        return is_object($result) ? $result->row : $result;
+        return is_object($result) ? $result->row : null;
     }
 
     /**
