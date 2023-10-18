@@ -60,12 +60,12 @@
                         <div class="col-xl-6 mt-3 mt-xl-0">
                             <h2 class="fs-4 mb-3">{{ text_status_title }}</h2>
                             <p class="fst-italic mb-2">{{ text_status_notice }}</p>
-                            <div class="d-flex">
+                            <div class="d-flex flex-wrap">
                                 <label for="input-status" class="col-form-label me-3">{{ entry_status }}</label>
                                 <div class="form-check form-switch form-switch-lg">
                                     <input id="input-status" type="checkbox" name="{{ settings.status }}" value="1" class="form-check-input"{% if _context[settings.status] %} checked{% endif %}{% if read_error %} disabled{% endif %}/>
-                                    <div id="error-status" class="invalid-feedback"></div>
                                 </div>
+                                <div id="error-status" class="invalid-feedback"></div>
                             </div>
                             <p class="mt-2">{{ text_status_info }}</p>
                         </div>
