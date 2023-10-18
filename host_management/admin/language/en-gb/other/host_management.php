@@ -5,6 +5,7 @@ $_['heading_title']        = 'Host Management';
 // Text
 $_['text_extension']       = 'Extensions';
 $_['text_success']         = 'You have changed Host Management!';
+$_['text_success_hosts']   = 'Hosts have been updated!';
 $_['text_close']           = 'Close';
 $_['text_edit']            = 'Manage Hosts';
 $_['text_host']            = 'Host';
@@ -40,6 +41,7 @@ $_['button_host_remove' ]  = 'Remove host';
 // Error
 $_['error_permission']     = 'Warning: You do not have permission to modify security settings!';
 $_['error_warning']        = 'Warning: Please check the form carefully for errors!';
+$_['error_file_access']    = 'Warning: Could not get access for: %s file.!';
 $_['error_read_access']    = 'Warning: Could not get read access for: %s file.!';
 $_['error_write_access']   = 'Warning: Could not get write access for: %s file.!';
 $_['error_read']           = '<strong>Error: </strong> Reading admin config failed. Could not match
@@ -56,6 +58,8 @@ $_['error_update_urls']    = 'Could not match URLs within config file!';
 $_['error_http_server']    = 'Could not match "HTTP_SERVER" definition!';
 $_['error_http_catalog']   = 'Could not match "HTTP_CATALOG" definition!';
 $_['error_php_tag']        = 'Could not match "php" opening tag!';
+$_['error_restore']        = 'Could not find edited section of config file!';
+$_['error_default_host']   = 'Could not find default host!';
 $_['error_status']         = 'Status was not changed!';
 
 // Messages
