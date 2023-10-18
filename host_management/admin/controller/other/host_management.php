@@ -2,150 +2,107 @@
 
 namespace Opencart\Admin\Controller\Extension\HostManagement\Other;
 
-use SplFileObject;
 use Opencart\System\Engine\Controller;
 use Opencart\System\Engine\Registry;
+use Opencart\Extension\HostManagement\Admin\File\Config;
+use Opencart\Extension\HostManagement\Admin\Logging\Log;
+use Opencart\Extension\HostManagement\Admin\Messaging\MessageBag;
+use Opencart\Extension\HostManagement\Admin\Validation\Validator;
+use Opencart\Admin\Model\Extension\HostManagement\Other\HostManagement as Model;
 
 
 /**
  * Host management extension controller.
  */
-final class HostManagement extends Controller
+class HostManagement extends Controller
 {
     /**
-     * Protocol detection code.
+     * Extension DB code.
      *
      * @var string
      */
-    private static $codeProtocol = <<<'EOT'
-    if ((isset($_SERVER['HTTPS']) && (($_SERVER['HTTPS'] == 'on') || ($_SERVER['HTTPS'] == '1'))) || $_SERVER['SERVER_PORT'] == 443) {
-        $ngrt_protocol = 'https://';
-    } elseif (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https' || !empty($_SERVER['HTTP_X_FORWARDED_SSL']) && $_SERVER['HTTP_X_FORWARDED_SSL'] == 'on') {
-        $ngrt_protocol = 'https://';
-    } else {
-        $ngrt_protocol = 'http://';
-    }
-    EOT;
-
-    /**
-     * Admin host code.
-     *
-     * @var string
-     */
-    private static $codeHostAdmin = <<<'EOT'
-    $ngrt_host = $ngrt_protocol . $_SERVER['HTTP_HOST'] . substr(rtrim(dirname($_SERVER['SCRIPT_NAME']), '/.\\\'), 0, -*admin_length*) . '/';
-    EOT;
-
-    /**
-     * Public host code.
-     *
-     * @var string
-     */
-    private static $codeHostPublic = <<<'EOT'
-    $ngrt_host = $ngrt_protocol . $_SERVER['HTTP_HOST'] . rtrim(dirname($_SERVER['SCRIPT_NAME']), '/.\\\') . '/';
-    EOT;
-
-    /**
-     * Admin config host definition.
-     *
-     * @var string
-     */
-    private static $codeAdmin = <<<'EOT'
-    define('HTTP_SERVER', $ngrt_host . '*admin*');
-    define('HTTP_CATALOG', $ngrt_host);
-    EOT;
-
-    /**
-     * Public config host definition.
-     *
-     * @var string
-     */
-    private static $codePublic = <<<'EOT'
-    define('HTTP_SERVER', $ngrt_host);
-    EOT;
-
-    /**
-     * Config file comments.
-     *
-     * @var array
-     */
-    private static $comments = [
-        'before' => '// *** Start Host Management Extension Edit ***',
-        'after' => '// *** End Host Management Extension Edit ***'
-    ];
-
-    /**
-     * Search patterns.
-     *
-     * @var array
-     */
-    private static $find = [
-        'server' => '^(define\(\'HTTP_SERVER\'[^\r\n]+)$[\r\n]{1,2}',
-        'catalog' => '^(define\(\'HTTP_CATALOG\'[^\r\n]+)$[\r\n]{1,2}'
-    ];
-
-    /**
-     * Replacement patterns.
-     *
-     * @var array
-     */
-    private static $replace = [
-        'server' => '// $1',
-        'catalog' => '// $2'
-    ];
-
-    /**
-     * Settings' names.
-     *
-     * @var array
-     */
-    protected static $settings = [
-        'admin_dir' => 'host_management_admin_dir',
-        'public_dir' => 'host_management_public_dir',
-        'status' => 'host_management_status'
-    ];
-
-    /**
-     * Model property name.
-     *
-     * @var string
-     */
-    protected static $model_name = 'model_extension_host_management_other_host_management';
+    protected static string $code = 'host_management';
 
     /**
      * Log messages prefix.
      *
      * @var string
      */
-    protected static $log_prefix = '[Extension: Host management] - ';
+    protected static string $log_prefix = '[Extension: Host management] - ';
 
     /**
-     * Extension DB code.
+     * Model property name.
      *
      * @var string
      */
-    protected static $extension_code = 'host_management';
+    protected static string $model_name = 'model_extension_host_management_other_host_management';
 
     /**
      * Extension route.
      *
      * @var string
      */
-    protected static $route = 'extension/host_management/other/host_management';
+    protected static string $route = 'extension/host_management/other/host_management';
 
     /**
-     * Response error messages.
+     * Settings' names.
      *
      * @var array
      */
-    private $error_msg = [];
+    protected static array $settings = [
+        'admin_dir' => 'host_management_admin_dir',
+        'public_dir' => 'host_management_public_dir',
+        'status' => 'host_management_status'
+    ];
 
     /**
-     * Response success messages.
+     * Admin config file path.
      *
-     * @var array
+     * @var string
      */
-    private $success_msg = [];
+    protected static string $adminPath = DIR_APPLICATION . 'config.php';
+
+    /**
+     * Public config file path.
+     *
+     * @var string
+     */
+    protected static string $publicPath = DIR_OPENCART . 'config.php';
+
+    /**
+     * Config file manager instance.
+     *
+     * @var Config
+     */
+    protected Config $file;
+
+    /**
+     * Log instance.
+     *
+     * @var Log
+     */
+    protected Log $log;
+
+    /**
+     * MessageBag instance.
+     *
+     * @var MessageBag
+     */
+    protected MessageBag $messages;
+
+    /**
+     * Model instance.
+     *
+     * @var Model
+     */
+    protected Model $model;
+
+    /**
+     * Validator instance.
+     *
+     * @var Validator
+     */
+    protected Validator $validator;
 
 
     /**
@@ -158,7 +115,254 @@ final class HostManagement extends Controller
         parent::__construct($registry);
 
         $this->load->language(static::$route);
+
+        $this->model = new Model($registry);
+        $this->log = new Log(parent::__get('log'), static::$log_prefix);
+        $this->file = new Config($this->log, new MessageBag($this->language));
+        $this->messages = new MessageBag($this->language);
+        $this->validator = new Validator();
     }
+
+// #region INTERNAL METHODS
+
+    /**
+     * Logs a message.
+     *
+     * @param string $message
+     * @return void
+     */
+    protected function log(string $message): void
+    {
+        $this->log->write(static::$log_prefix . $message);
+    }
+
+    /**
+     * Sends json response.
+     *
+     * @param array|null $messages
+     * @return void
+     */
+    protected function jsonResponse(?array $messages = null): void
+    {
+        $this->response->addHeader('Content-Type: application/json');
+        $this->response->setOutput(json_encode($messages ?? $this->messages->get()));
+    }
+
+    /**
+     * Saves protocol, default host, admin and catalog directories read from admin config file.
+     *
+     * @return array Config data.
+     */
+    protected function saveConfigFileSettings(): array
+    {
+        $hosts = $this->file->readConfig(DIR_APPLICATION . 'config.php');
+
+        if (!$hosts) {
+            $this->messages->mergeErrors($this->file->getErrors());
+
+            return [];
+        }
+
+        if (!$this->validator->hasSameHosts($hosts)) {
+            $this->messages->error('error_same');
+
+            return [];
+        }
+
+        if (!$this->validator->isValidProtocol($hosts['server']['protocol'])) {
+            $this->messages->error('error_protocol');
+
+            return [];
+        }
+
+        if (!$this->validator->isValidHostname($hosts['server']['hostname'])) {
+            $this->messages->error('error_hostname');
+
+            return [];
+        }
+
+        if (!$this->validator->isValidAdminDir($hosts['server']['dir'])) {
+            $this->messages->error('error_dir', 'warning', 'text_admin');
+
+            return [];
+        }
+
+        if (!$this->validator->isValidPublicDir($hosts['catalog']['dir'])) {
+            $this->messages->error('error_dir', 'warning', 'text_public');
+
+            return [];
+        }
+
+        $this->load->model('setting/setting');
+
+        $this->model_setting_setting->editSetting(
+            static::$code,
+            [
+                static::$settings['admin_dir'] => $hosts['server']['dir'],
+                static::$settings['public_dir'] => $hosts['catalog']['dir']
+            ]
+        );
+        
+        if (!empty($this->model->getDefault())) {
+            $this->model->updateDefault($hosts['server']);
+        } else {
+            $this->model->insert([
+                'protocol' => $hosts['server']['protocol'],
+                'hostname' => $hosts['server']['hostname'],
+                'default' => true
+            ]);
+        }
+
+        return $hosts;
+    }
+
+    /**
+     * Validates posted hosts.
+     *
+     * @param array $hosts
+     * @return void
+     */
+    protected function validateHosts(array $hosts): void
+    {
+        $default_hosts = 0;
+
+        foreach ($hosts as $key => $host) { 
+            if ((bool)$host['default']) $default_hosts++;
+
+            if (!$this->validator->isValidProtocol($host['protocol'])) {
+                $this->messages->error('error_protocol', 'protocol_' . $key);
+            }
+
+            if (!$this->validator->isValidHostname($host['hostname'])) {
+                $this->messages->error('error_hostname', 'hostname_' . $key);
+            }
+        }
+
+        if ($this->messages->hasErrors()) {
+            $this->messages->error('error_warning');
+
+            return;
+        }
+
+        if ($default_hosts !== 1) {
+            $this->messages->error('error_default_count');
+        }
+    }
+
+    /**
+     * Asserts both config files are writable.
+     *
+     * @return boolean
+     */
+    protected function configFilesWritable(): bool
+    {
+        foreach ([ static::$adminPath, static::$publicPath ] as $path) {
+            if (!is_writable($path)) {
+                $this->messages->error('error_write_access', 'warning', $path);
+    
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Enables the extension.
+     *
+     * @param array $hosts
+     * @param array $dirs
+     * @return bool
+     */
+    protected function enable(array $hosts, array $dirs): bool
+    {
+        if (!$this->configFilesWritable()) return false;
+
+        if (!$this->file->edit(static::$adminPath, $hosts, $dirs)) {
+            $this->messages->mergeErrors($this->file->getErrors());
+
+            return false;
+        }
+
+        if (!$this->file->edit(static::$publicPath, $hosts, $dirs)) {
+            $this->messages->mergeErrors($this->file->getErrors());
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Updates config hosts.
+     *
+     * @param array $hosts
+     * @return bool
+     */
+    protected function update(array $hosts): bool
+    {
+        if (!$this->configFilesWritable()) return false;
+
+        if (!$this->file->update(static::$adminPath, $hosts)) {
+            $this->messages->mergeErrors($this->file->getErrors());
+
+            return false;
+        }
+
+        if (!$this->file->update(static::$publicPath, $hosts)) {
+            $this->messages->mergeErrors($this->file->getErrors());
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Disables the extension.
+     *
+     * @param array $hosts
+     * @param array $dirs
+     * @return bool
+     */
+    protected function disable(array $hosts, array $dirs): bool
+    {
+        $default_host = null;
+
+        foreach ($hosts as $host) {
+            if ((bool)$host['default']) {
+                $default_host = $host;
+
+                break;
+            }
+        }
+
+        if (!$default_host) {
+            $this->messages->error('error_default_host');
+
+            return false;
+        }
+
+        if (!$this->configFilesWritable()) return false;
+
+        if (!$this->file->restore(static::$adminPath, $default_host, $dirs)) {
+            $this->messages->mergeErrors($this->file->getErrors());
+
+            return false;
+        }
+
+        if (!$this->file->restore(static::$publicPath, $default_host, $dirs)) {
+            $this->messages->mergeErrors($this->file->getErrors());
+
+            return false;
+        }
+
+        return true;
+    }
+
+// #endregion
+
+// #region PUBLIC INTERFACE
 
     /**
      * Installs the extension.
@@ -167,32 +371,49 @@ final class HostManagement extends Controller
      */
     public function install(): void
     {
-        if (!$this->user->hasPermission('modify', 'extension/other')) return;
+        if (!$this->user->hasPermission('modify', 'extension/other')) {
+            $this->log($this->language->get('error_permission'));
 
-        $this->load->model(static::$route);
+            return;
+        }
 
-        $this->{static::$model_name}->install();
+        $this->model->install();
 
-        $admin = [];
-        $public = [];
-
-        $this->readAdminConfig($admin, $public);
-        $this->saveDefaults($admin, $public);
-    }
-
-    public function uninstall(): void
-    {
-        if (!$this->user->hasPermission('modify', 'extension/other')) return;
-
-        $this->load->model(static::$route);
-
-        // Check amdin/public status, and restore config files if necessary
-
-        $this->{static::$model_name}->uninstall();
+        $this->saveConfigFileSettings();
     }
 
     /**
-     * Displays extension settings.
+     * Uninstalls the extenison.
+     *
+     * @return void
+     */
+    public function uninstall(): void
+    {
+        if (!$this->user->hasPermission('modify', 'extension/other')) {
+            $this->log($this->language->get('error_permission'));
+
+            return;
+        }
+
+        if (!empty($this->config->get(static::$settings['status']))) {
+            $hosts = $this->model->getAll();
+            $dirs = [
+                'admin' => $this->config->get(static::$settings['admin_dir']),
+                'public' => $this->config->get(static::$settings['public_dir'])
+            ];
+
+            $this->disable($hosts, $dirs);
+
+            if ($this->messages->hasErrors()) {
+                $this->log($this->messages->getFirstError());
+            }
+        }
+
+        $this->model->uninstall();
+    }
+
+    /**
+     * Displays extension settings page.
      *
      * @return void
      */
@@ -219,28 +440,25 @@ final class HostManagement extends Controller
         ];
 
         $data['back'] = $this->url->link('marketplace/extension', $user_token . '&type=other');
-
         $data['save'] =
             $this->url->link(static::$route . $separator . 'save', $user_token);
 
         $data['settings'] = static::$settings;
+        $data['hosts'] = $this->model->getAll();
 
         foreach (static::$settings as $setting_db_key) {
             $data[$setting_db_key] = $this->config->get($setting_db_key);
         }
 
-        $this->load->model(static::$route);
-
-        $data['hosts'] = $this->{static::$model_name}->all();
-
         if (empty($data[static::$settings['admin_dir']]) || empty($data['hosts'])) {
-            $admin = [];
-            $public = [];
+            $config_data = $this->saveConfigFileSettings();
 
-            $this->readAdminConfig($admin, $public);
-
-            if (!$this->saveDefaults($admin, $public)) {
-                $data['read_error'] = true;
+            if (!empty($config_data)) {
+                $data['hosts'] = [ $config_data['server'], $config_data['catalog'] ];
+                $data[static::$settings['admin_dir']] = $config_data['server']['dir'];
+                $data[static::$settings['public_dir']] = $config_data['catalog']['dir'];
+            } else {
+                $data['read_error'] = $this->messages->getFirstError();
                 $data['hosts'] = [];
                 $data[static::$settings['admin_dir']] = '';
                 $data[static::$settings['public_dir']] = '';
@@ -261,328 +479,70 @@ final class HostManagement extends Controller
      */
     public function save(): void
     {
-        $this->load->language(static::$route);
-
         if (!$this->user->hasPermission('modify', 'common/security')) {
-            $message = 'Insufficient permissions to modify security settings.';
-
-            $this->error_msg[] = $message;
-            $this->log->write(static::$log_prefix . $message);
-
+            $this->messages->error('error_permission');
+            $this->log($this->messages->getFirstError());
             $this->jsonResponse();
 
             return;
         }
 
-        $adminPath = DIR_APPLICATION . 'config.php';
-        $publicPath = DIR_OPENCART . 'config.php';
+        $hosts = $this->request->post['hosts'];
 
-        $this->load->model('setting/setting');
+        $this->validateHosts($hosts);
 
-        if (!empty($this->request->post['host_management_admin_status'])) {
-            if (!$this->Activate($adminPath)) {
-                unset($this->request->post['host_management_admin_status']);
-            }
-        } else {
-            // This is bad because if it was disabled, and we can't get write access
-            // we incorrectly set it to enabled
-            if (!$this->Restore($adminPath)) {
-                $this->request->post['host_management_admin_status'] = '1';
-            }
+        if ($this->messages->hasErrors()) {
+            $this->jsonResponse();
+
+            return;
         }
 
-        if (!empty($this->request->post['host_management_catalog_status'])) {
-            if (!$this->Activate($publicPath)) {
-                unset($this->request->post['host_management_catalog_status']);
-            }
-        } else {
-            if (!$this->Restore($publicPath)) {
-                $this->request->post['host_management_catalog_status'] = '1';
-            }
+        $this->model->truncate();
+        $this->model->insertMany($hosts);
+
+        $this->messages->success('text_success_hosts');
+
+
+        $old_status = empty($this->config->get(static::$settings['status'])) ? '0' : '1';
+        $requested_status = empty($this->request->post[static::$settings['status']]) ? '0' : '1';
+
+        $dirs = [
+            'admin' => $this->config->get(static::$settings['admin_dir']),
+            'public' => $this->config->get(static::$settings['public_dir'])
+        ];
+        $status = $old_status;
+        
+        if ($requested_status === '1' && $old_status === '0') {
+            $status = $this->enable($hosts, $dirs) ? '1' : '0';
+        } else if ($requested_status === '1' && $old_status === '1') {
+            $this->update($hosts);
+        } else if ($requested_status === '0' && $old_status === '1') {
+            $status = $this->disable($hosts, $dirs) ? '0' : '1';
         }
 
-        $this->model_setting_setting->editSetting(static::$extension_code, $this->request->post);
+        if ($status !== $old_status) {
+            $this->load->model('setting/setting');
+    
+            $this->model_setting_setting->editSetting(
+                static::$code,
+                [
+                    static::$settings['admin_dir'] => $dirs['admin'],
+                    static::$settings['public_dir'] => $dirs['public'],
+                    static::$settings['status'] => $status
+                ]
+            );
+        }
+
+        if ($status !== $requested_status) {
+            $this->messages->error('error_status', 'status');
+        }
+
+        if (!$this->messages->hasErrors()) {
+            $this->messages->success('text_success');
+        }
 
         $this->jsonResponse();
     }
 
-    /**
-     * Creates file object for given path.
-     *
-     * @param string $path
-     * @param string $mode
-     * @return SplFileObject|null
-     */
-    private function getFileObj(string $path, string $mode = 'r+'): ?SplFileObject
-    {
-        try {
-            return new SplFileObject($path, $mode);
-        } catch (\Throwable $th) {
-            $message_template = 'Could not get write access for: %s file.';
-            $error_template = '%s. Line: %s.';
-
-            $this->error_msg[] = sprintf($message_template, $path);
-            $this->log->write(
-                static::$log_prefix . sprintf($error_template, $th->getMessage(), $th->getLine())
-            );
-        }
-
-        return null;
-    }
-
-    /**
-     * Reads host information from config file.
-     *
-     * @param array $admin
-     * @param array $public
-     * @return void
-     */
-    private function readAdminConfig(array &$admin, array &$public): void
-    {
-        $file = $this->getFileObj(DIR_APPLICATION . 'config.php', 'r');
-
-        if (!$file) return;
-
-        $adminPattern =<<<'EOT'
-        /define\s*\(
-        \s*[\"\']HTTP_SERVER[\'\"]\s*\,
-        \s*[\'\"](?<protocol>http|https)\:\/\/(?<hostname>[\w\d\-\.]+)\/(?<dir>[^\'\"]+)[\'\"]\s*
-        \)/mx
-        EOT;
-
-        $publicPattern =<<<'EOT'
-        /define\s*\(
-        \s*[\"\']HTTP_CATALOG[\'\"]\s*\,
-        \s*[\'\"](?<protocol>http|https)\:\/\/(?<hostname>[\w\d\-\.]+)\/(?<dir>[^\'\"]+)?[\'\"]\s*
-        \)/mx
-        EOT;
-
-        $configStr = $file->fread($file->getSize());
-
-        preg_match($adminPattern, $configStr, $admin);
-        preg_match($publicPattern, $configStr, $public);
-    }
-
-    /**
-     * Saves default host, protocol and directories.
-     *
-     * @param array $admin
-     * @param array $public
-     * @return bool
-     */
-    private function saveDefaults(array $admin, array $public): bool
-    {
-        if (
-            !isset(
-                $admin['protocol'],
-                $admin['hostname'],
-                $admin['dir'],
-                $public['protocol'],
-                $public['hostname']
-            )
-        ) return false;
-
-        if (
-            $admin['protocol'] !== $public['protocol'] || $admin['hostname'] !== $public['hostname']
-        ) return false;
-
-        $this->load->model(static::$route);
-
-        $this->{static::$model_name}->insert([
-            'protocol' => $admin['protocol'],
-            'hostname' => $admin['hostname'],
-            'default' => true
-        ]);
-
-        $this->load->model('setting/setting');
-
-        $this->model_setting_setting->editSetting(
-            static::$extension_code,
-            [
-                static::$settings['admin_dir'] => $admin['dir'],
-                static::$settings['public_dir'] => $public['dir'] ?? ''
-            ]
-        );
-
-        return true;
-    }
-
-    /**
-     * Replaces definitions within given file.
-     *
-     * @param string $filePath
-     * @return bool
-     */
-    private function Activate(string $filePath): bool
-    {
-        $file = $this->getFileObj($filePath);
-
-        if (!$file) return false;
-
-        $configStr = $file->fread($file->getSize());
-
-        if (str_contains($configStr, static::$comments['before'])) return true;
-
-        $isAdmin = str_contains($configStr, 'define(\'APPLICATION\', \'Admin\')');
-
-        if ($isAdmin) {
-            $matches = [];
-            $matched = preg_match(
-                '/define\(\'HTTP_SERVER\'\,\s+\'.+\/([^\/]+)\/\'\)/m',
-                $configStr,
-                $matches
-            );
-
-            if (!$matched || !isset($matches[1]) || strlen($matches[1]) < 2) {
-                $message = 'Could not match admin direcotry.';
-
-                $this->error_msg[] = $message;
-                $this->log->write(static::$log_prefix . $message);
-
-                return false;
-            }
-
-            $adminPath = $matches[1];
-        }
-
-        $pattern = '/' . static::$find['server'];
-        $pattern .= $isAdmin ? static::$find['catalog'] . '/m' : '/m';
-
-        $replacement = static::$comments['before'] . PHP_EOL . static::$replace['server'];
-        $replacement .= $isAdmin ? PHP_EOL . static::$replace['catalog'] : '';
-        $replacement .= PHP_EOL . static::$codeProtocol . PHP_EOL . PHP_EOL;
-        $replacement .=
-            $isAdmin ?
-            str_replace('*admin_length*', strval(strlen($adminPath)), static::$codeHostAdmin) :
-            static::$codeHostPublic;
-        $replacement .= PHP_EOL . PHP_EOL;
-        $replacement .=
-            $isAdmin ? str_replace('*admin*', $adminPath .'/', static::$codeAdmin) : static::$codePublic;
-        $replacement .= PHP_EOL . static::$comments['after'] . PHP_EOL . PHP_EOL;
-
-        $count = 0;
-        $result = preg_replace($pattern, $replacement, $configStr, -1, $count);
-
-        if ($count !== 1) {
-            $this->error_msg[] =
-                sprintf(
-                    'Could not match definitions within %s config file.',
-                    $isAdmin ? 'admin' : 'catalog'
-                );
-
-            $file = null;
-
-            return false;
-        }
-
-        $file->rewind();
-        $file->fwrite($result);
-        $file = null;
-
-        $this->success_msg[] =
-            $this->language->get('text_success_' . ($isAdmin ? 'admin' : 'catalog'));
-
-        return true;
-    }
-
-    /**
-     * Restores original definitions.
-     *
-     * @param string $filePath
-     * @return boolean
-     */
-    private function Restore(string $filePath): bool
-    {
-        $file = $this->getFileObj($filePath);
-
-        if (!$file) return false;
-
-        $configStr = $file->fread($file->getSize());
-
-        if (!str_contains($configStr, static::$comments['before'])) return true;
-
-        $isAdmin = str_contains($configStr, 'define(\'APPLICATION\', \'Admin\')');
-
-        $pattern = '/^\/{2}\s\*{3}\sStart.+?\R';
-        $pattern .= '^\/{2}\s(define\(\'HTTP_SERVER\'.+?)$';
-        $pattern .= '(?:(\R)^\/{2}\s(define\(\'HTTP_CATALOG\'.+?)$)?';
-        $pattern .= '.+Edit\s\*{3}$/ms';
-
-        $count = 0;
-        $result = preg_replace($pattern, '$1$2$3', $configStr, -1, $count);
-
-        if ($count !== 1) {
-            $this->error_msg[] =
-                sprintf(
-                    'Could not match extension modifications within %s config file.',
-                    $isAdmin ? 'admin' : 'catalog'
-                );
-
-            $file = null;
-
-            return false;
-        }
-
-        $file->rewind();
-        $file->ftruncate(0);
-        $file->fwrite($result);
-        $file = null;
-
-        $this->success_msg[] =
-            $this->language->get('text_success_' . ($isAdmin ? 'admin' : 'catalog'));
-
-        return true;
-    }
-
-    /**
-     * Parses messages array into HTML.
-     *
-     * @param array $messages
-     * @param string $prefix
-     * @return string|null
-     */
-    private function parseMessages(array $messages, string $prefix): ?string
-    {
-        $count = count($messages);
-
-        if ($count === 0) return null;
-
-        if ($count === 1) return $prefix . ': ' . $messages[0];
-
-        $list_itmes = '';
-
-        foreach ($messages as $message) {
-            $list_itmes .= '<li>' . $message . '</li>' . PHP_EOL;
-        }
-
-        return <<<EOT
-        <p class="ps-4 mb-2" style="margin-top: -1.125rem;">$prefix:</p>
-        <ul class="ps-5">
-            $list_itmes
-        </ul>
-        EOT;
-    }
-
-    /**
-     * Sends json response.
-     *
-     * @return void
-     */
-    private function jsonResponse(): void
-    {
-        $output = [];
-        $errors = $this->parseMessages($this->error_msg, 'Error');
-        $success = $this->parseMessages($this->success_msg, 'Success');
-
-        if ($errors) {
-            $output['error'] = $errors;
-        }
-
-        if ($success) {
-            $output['success'] = $success;
-        }
-
-        $this->response->addHeader('Content-Type: application/json');
-        $this->response->setOutput(json_encode($output));
-    }
+// #endregion PUBLIC INTERFACE
 }
