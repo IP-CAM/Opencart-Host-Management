@@ -149,7 +149,7 @@ class HostManagement extends Controller
     }
 
     /**
-     * Saves protocol, default host, admin and catalog directories read from admin config file.
+     * Saves default host, it's protocol, admin and catalog directories read from admin config file.
      *
      * @return array Config data.
      */
@@ -278,15 +278,17 @@ class HostManagement extends Controller
      */
     protected function enable(array $hosts, array $dirs): bool
     {
-        if (!$this->configFilesWritable()) return false;
-
-        if (!$this->file->edit(static::$adminPath, $hosts, $dirs)) {
-            $this->messages->mergeErrors($this->file->getErrors());
-
-            return false;
+        if (
+            !$this->file->canEdit(static::$adminPath)
+            || !$this->file->canEdit(static::$publicPath)
+        ) {
+            return false;   
         }
 
-        if (!$this->file->edit(static::$publicPath, $hosts, $dirs)) {
+        if (
+            !$this->file->edit(static::$adminPath, $hosts, $dirs)
+            || !$this->file->edit(static::$publicPath, $hosts, $dirs)
+        ) {
             $this->messages->mergeErrors($this->file->getErrors());
 
             return false;
@@ -303,15 +305,17 @@ class HostManagement extends Controller
      */
     protected function update(array $hosts): bool
     {
-        if (!$this->configFilesWritable()) return false;
-
-        if (!$this->file->update(static::$adminPath, $hosts)) {
-            $this->messages->mergeErrors($this->file->getErrors());
-
-            return false;
+        if (
+            !$this->file->canUpdate(static::$adminPath)
+            || !$this->file->canUpdate(static::$publicPath)
+        ) {
+            return false;   
         }
 
-        if (!$this->file->update(static::$publicPath, $hosts)) {
+        if (
+            !$this->file->update(static::$adminPath, $hosts)
+            || !$this->file->update(static::$publicPath, $hosts)
+        ) {
             $this->messages->mergeErrors($this->file->getErrors());
 
             return false;
@@ -454,7 +458,8 @@ class HostManagement extends Controller
         }
 
         if (
-            !isset($data[static::$settings['admin_dir']], $data[static::$settings['public_dir']])
+            !$this->validator->isValidAdminDir($data[static::$settings['admin_dir']])
+            || !$this->validator->isValidPublicDir($data[static::$settings['public_dir']])
             || empty($data['hosts'])
         ) {
             $config_data = $this->saveConfigFileData();
@@ -510,8 +515,8 @@ class HostManagement extends Controller
             'public' => $this->config->get(static::$settings['public_dir'])
         ];
 
-        $was_enabled = empty($this->config->get(static::$settings['status']));
-        $requested = empty($this->request->post[static::$settings['status']]);
+        $was_enabled = !empty($this->config->get(static::$settings['status']));
+        $requested = !empty($this->request->post[static::$settings['status']]);
         $is_enabled = $was_enabled;
         
         if (!$was_enabled && $requested) {
@@ -530,7 +535,7 @@ class HostManagement extends Controller
                 static::$settings['public_dir'] => $dirs['public']
             ];
 
-            if ($is_enabled) $settings['status'] = true;
+            if ($is_enabled) $settings[static::$settings['status']] = true;
 
             $this->model_setting_setting->editSetting(static::$code, $settings);
         }

@@ -32,6 +32,16 @@ class Config
         'r+' => 'error_write_access'
     ];
 
+    protected static array $patterns = [
+        'admin' => '/^define\s*\(\s*[\"\']APPLICATION[\"\']\s*\,\s*[\"\']Admin[\"\']\s*\);\s*$\R/m',
+        'server' => '/^define\s*\(\s*[\"\']HTTP_SERVER[\'\"]\s*\,\s*[\'\"][^\'\"]+[\'\"]\s*\);\s*$\R/m',
+        'catalog' => '/^define\s*\(\s*[\"\']HTTP_CATALOG[\'\"]\s*\,\s*[\'\"][^\'\"]+[\'\"]\s*\);\s*$\R/m',
+        'http' => '/^(\/\/\s*HTTP)\s*$/m',
+        'php' => '/^(<\?(?:php)?)\s*$/m',
+        'default_url' => '/^\$hm_default\s*\=\s*[\"\'][^\'\"]+[\'\"]/m',
+        'urls' => '/^\$hm_urls\s*\=\s*\[[^\]]+\]/m'
+    ];
+
     /**
      * Log instance.
      *
@@ -62,6 +72,21 @@ class Config
 // #region INTERNAL METHODS
 
     /**
+     * Inserts error message related to specific file and optionally closes file pointer.
+     *
+     * @param string $error
+     * @param string $path
+     * @param SplFileObject|null $file
+     * @return void
+     */
+    protected function fileError(string $error, string $path, ?SplFileObject $file = null): void
+    {
+        $this->messages->error($error, 'warning', $path);
+
+        if ($file) $file = null;
+    }
+
+    /**
      * Creates file object for given path.
      *
      * @param string $path
@@ -74,11 +99,7 @@ class Config
             return new SplFileObject($path, $mode);
         } catch (\Throwable $th) {
             $this->log->write(sprintf('%s. Line: %s.', $th->getMessage(), $th->getLine()));
-            $this->messages->error(
-                static::$error_keys[$mode] ?? 'error_file_access',
-                'warning',
-                $path
-            );
+            $this->fileError(static::$error_keys[$mode] ?? 'error_file_access', $path);
         }
 
         return null;
@@ -101,6 +122,17 @@ class Config
         $file = null;
 
         return (bool)$result;
+    }
+
+    /**
+     * Checks if content belongs to admin config.php.
+     *
+     * @param string $content
+     * @return bool
+     */
+    protected function isAdminConfig(string $content): bool
+    {
+        return (bool)preg_match(static::$patterns['admin'], $content);
     }
 
     /**
@@ -271,6 +303,47 @@ class Config
     }
 
     /**
+     * Checks if config file can be edited.
+     *
+     * @param string $path
+     * @return boolean
+     */
+    public function canEdit(string $path): bool
+    {
+        $file = $this->getFileObj($path, 'r+');
+
+        if (!$file) return false;
+
+        $content = (string)$file->fread($file->getSize());
+        $isAdmin = $this->isAdminConfig($content);
+
+        if (!preg_match(static::$patterns['server'], $content)) {
+            $this->fileError('error_http_server', $path, $file);
+
+            return false;
+        }
+
+        if ($isAdmin && !preg_match(static::$patterns['catalog'], $content)) {
+            $this->fileError('error_http_catalog', $path, $file);
+
+            return false;
+        }
+
+        if (
+            !preg_match(static::$patterns['http'], $content)
+            && !preg_match(static::$patterns['php'], $content)
+        ) {
+            $this->fileError('error_php_tag', $path, $file);
+
+            return false;
+        }
+
+        $file = null;
+
+        return true;
+    }
+
+    /**
      * Edits config file.
      *
      * @param string $path
@@ -285,63 +358,70 @@ class Config
         if (!$file) return false;
 
         $content = (string)$file->fread($file->getSize());
+        $isAdmin = $this->isAdminConfig($content);
         $count = 0;
 
-        $isAdmin =
-            preg_match(
-                '/^define\s*\(\s*[\"\']APPLICATION[\"\']\s*\,\s*[\"\']Admin[\"\']\s*\);\s*$\R/m',
-                $content
-            );
-
-        $content =
-            preg_replace(
-                '/^define\s*\(\s*[\"\']HTTP_SERVER[\'\"]\s*\,\s*[\'\"][^\'\"]+[\'\"]\s*\);\s*$\R/m',
-                '',
-                $content,
-                1,
-                $count
-            );
+        $content = preg_replace(static::$patterns['server'], '', $content, 1, $count);
 
         if (!$content || $count !== 1) {
-            $this->messages->error('error_http_server');
-            $file = null;
+            $this->fileError('error_http_server', $path, $file);
 
             return false;
         }
 
         if ($isAdmin) {
-            $content = preg_replace(
-                '/^define\s*\(\s*[\"\']HTTP_CATALOG[\'\"]\s*\,\s*[\'\"][^\'\"]+[\'\"]\s*\);\s*$\R/m',
-                '',
-                $content,
-                1,
-                $count
-            );
+            $content = preg_replace(static::$patterns['catalog'], '', $content, 1, $count);
 
             if (!$content || $count !== 1) {
-                $this->messages->error('error_http_catalog');
-                $file = null;
+                $this->fileError('error_http_catalog', $path, $file);
 
                 return false;
             }
         }
 
         $search =
-            preg_match('/^\/\/\s*HTTP\s*$/m', $content) ?
-            '/^(\/\/\s*HTTP)\s*$/m'
-            : '/^(<\?(?:php)?)\s*$/m';
+            preg_match(static::$patterns['http'], $content) ?
+            static::$patterns['http']
+            : static::$patterns['php'];
         $replace = '$1' . PHP_EOL . $this->generateCodeBlock($hosts, $dirs, $isAdmin);
 
         $content = preg_replace($search, $replace, $content, 1, $count);
 
         if (!$content || $count !== 1) {
-            $this->messages->error('error_php_tag');
-            $file = null;
+            $this->fileError('error_php_tag', $path, $file);
 
             return false;
         }
 
         return $this->overwrite($file, $content);
+    }
+
+    /**
+     * Checks if config file can be updated.
+     *
+     * @param string $path
+     * @return boolean
+     */
+    public function canUpdate(string $path): bool
+    {
+        $file = $this->getFileObj($path, 'r+');
+
+        if (!$file) return false;
+
+        $content = (string)$file->fread($file->getSize());
+
+        if (
+            !preg_match(static::$patterns['default_url'], $content)
+            || !preg_match(static::$patterns['urls'], $content)
+        ) {
+            $this->fileError('error_update_urls', $path, $file);
+
+            return false;
+        }
+
+        $file = null;
+
+        return true;
     }
 
     /**
@@ -362,28 +442,14 @@ class Config
         $count = 0;
 
         $content =
-            preg_replace(
-                '/^\$hm_default\s*\=\s*[\"\'][^\'\"]+[\'\"]/m',
-                $urls['default'],
-                $content,
-                1,
-                $count
-            );
+            preg_replace(static::$patterns['default_url'], $urls['default'], $content, 1, $count);
 
         if ($count === 1) {
-            $content =
-                preg_replace(
-                    '/^\$hm_urls\s*\=\s*\[[^\]]+\]/m',
-                    $urls['all'],
-                    $content,
-                    1,
-                    $count
-                );
+            $content = preg_replace(static::$patterns['urls'], $urls['all'], $content, 1, $count);
         }
 
         if (!$content || $count !== 1) {
-            $this->messages->error('error_update_urls');
-            $file = null;
+            $this->fileError('error_update_urls', $path, $file);
 
             return false;
         }
