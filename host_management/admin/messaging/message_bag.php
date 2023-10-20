@@ -78,8 +78,12 @@ class MessageBag
     {
         $message = $this->prepare($message, ...$replacements);
 
-        if (isset($this->error_msg[$key])) {
-            $this->error_msg[$key] .= ' ' . $message;
+        if ($key === 'warning') {
+            if (!isset($this->error_msg[$key])) {
+                $this->error_msg[$key] = [];
+            }
+
+            $this->error_msg[$key][] = $message;
 
             return;
         }
@@ -142,7 +146,7 @@ class MessageBag
         }
 
         if (!empty($this->success_msg)) {
-            $messages['success'] = implode(' ', $this->success_msg);
+            $messages['success'] = $this->success_msg;
         }
 
         return $messages;

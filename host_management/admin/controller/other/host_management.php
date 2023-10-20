@@ -137,6 +137,20 @@ class HostManagement extends Controller
     }
 
     /**
+     * Joins array of messages for displaying as alerts.
+     *
+     * @param string|array $messages
+     * @param string $icon
+     * @return string
+     */
+    protected function joinMessages(string|array $messages, string $icon): string
+    {
+        if (!is_array($messages)) return $messages;
+
+        return implode('<br><i class="fa-solid ' .$icon . '"></i> ', $messages);
+    }
+
+    /**
      * Sends json response.
      *
      * @param array|null $messages
@@ -144,8 +158,19 @@ class HostManagement extends Controller
      */
     protected function jsonResponse(?array $messages = null): void
     {
+        $messages ??= $this->messages->get();
+
+        if (isset($messages['success'])){
+            $messages['success'] = $this->joinMessages($messages['success'], 'fa-circle-check');
+        }
+
+        if (isset($messages['error']['warning']) && is_array($messages['error']['warning'])) {
+            $messages['error']['warning'] =
+                $this->joinMessages($messages['error']['warning'], 'fa-circle-exclamation');
+        }
+
         $this->response->addHeader('Content-Type: application/json');
-        $this->response->setOutput(json_encode($messages ?? $this->messages->get()));
+        $this->response->setOutput(json_encode($messages));
     }
 
     /**
