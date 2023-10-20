@@ -133,7 +133,7 @@ class HostManagement extends Controller
      */
     protected function log(string $message): void
     {
-        $this->log->write(static::$log_prefix . $message);
+        $this->log->write($message);
     }
 
     /**
@@ -146,6 +146,21 @@ class HostManagement extends Controller
     {
         $this->response->addHeader('Content-Type: application/json');
         $this->response->setOutput(json_encode($messages ?? $this->messages->get()));
+    }
+
+    /**
+     * Sends HTML response.
+     *
+     * @param array $data
+     * @return void
+     */
+    protected function htmlResponse(array $data): void
+    {
+        $data['header'] = $this->load->controller('common/header');
+        $data['column_left'] = $this->load->controller('common/column_left');
+        $data['footer'] = $this->load->controller('common/footer');
+
+        $this->response->setOutput($this->load->view(static::$route, $data));
     }
 
     /**
@@ -191,7 +206,10 @@ class HostManagement extends Controller
             return [];
         }
 
-        if (!$this->validator->hasSameHosts($config_data)) {
+        if (
+            $config_data['server']['protocol'] !== $config_data['catalog']['protocol']
+            || $config_data['server']['hostname'] !== $config_data['catalog']['hostname']
+        ) {
             $this->messages->error('error_same');
 
             return [];
@@ -279,22 +297,17 @@ class HostManagement extends Controller
     protected function enable(array $hosts, array $dirs): bool
     {
         if (
-            !$this->file->canEdit(static::$adminPath)
-            || !$this->file->canEdit(static::$publicPath)
+            $this->file->canEdit(static::$adminPath)
+            && $this->file->canEdit(static::$publicPath)
+            && $this->file->edit(static::$adminPath, $hosts, $dirs)
+            && $this->file->edit(static::$publicPath, $hosts, $dirs)
         ) {
-            return false;   
+            return true;
         }
 
-        if (
-            !$this->file->edit(static::$adminPath, $hosts, $dirs)
-            || !$this->file->edit(static::$publicPath, $hosts, $dirs)
-        ) {
-            $this->messages->mergeErrors($this->file->getMessages()->getErrors());
+        $this->messages->mergeErrors($this->file->getMessages()->getErrors());
 
-            return false;
-        }
-
-        return true;
+        return false;
     }
 
     /**
@@ -306,22 +319,17 @@ class HostManagement extends Controller
     protected function update(array $hosts): bool
     {
         if (
-            !$this->file->canUpdate(static::$adminPath)
-            || !$this->file->canUpdate(static::$publicPath)
+            $this->file->canUpdate(static::$adminPath)
+            && $this->file->canUpdate(static::$publicPath)
+            && $this->file->update(static::$adminPath, $hosts)
+            && $this->file->update(static::$publicPath, $hosts)
         ) {
-            return false;   
+            return true;
         }
 
-        if (
-            !$this->file->update(static::$adminPath, $hosts)
-            || !$this->file->update(static::$publicPath, $hosts)
-        ) {
-            $this->messages->mergeErrors($this->file->getMessages()->getErrors());
+        $this->messages->mergeErrors($this->file->getMessages()->getErrors());
 
-            return false;
-        }
-
-        return true;
+        return false;
     }
 
     /**
@@ -345,27 +353,21 @@ class HostManagement extends Controller
 
         if (!$default_host) {
             $this->messages->error('error_default_host');
-
-            return false;
         }
 
         if (
-            !$this->file->canRestore(static::$adminPath)
-            || !$this->file->canRestore(static::$publicPath)
+            $default_host
+            && $this->file->canRestore(static::$adminPath)
+            && $this->file->canRestore(static::$publicPath)
+            && $this->file->restore(static::$adminPath, $default_host, $dirs)
+            && $this->file->restore(static::$publicPath, $default_host, $dirs)
         ) {
-            return false;
+            return true;
         }
 
-        if (
-            !$this->file->restore(static::$adminPath, $default_host, $dirs)
-            || !$this->file->restore(static::$publicPath, $default_host, $dirs)
-        ) {
-            $this->messages->mergeErrors($this->file->getMessages()->getErrors());
+        $this->messages->mergeErrors($this->file->getMessages()->getErrors());
 
-            return false;
-        }
-
-        return true;
+        return false;
     }
 
 // #endregion
@@ -470,26 +472,26 @@ class HostManagement extends Controller
         }
 
         if (
-            !$this->validator->isValidAdminDir($data[static::$settings['admin_dir']])
-            || !$this->validator->isValidPublicDir($data[static::$settings['public_dir']])
-            || empty($data['hosts'])
+            $this->validator->isValidAdminDir($data[static::$settings['admin_dir']])
+            && $this->validator->isValidPublicDir($data[static::$settings['public_dir']])
+            && !empty($data['hosts'])
         ) {
-            $config_data = $this->saveConfigFileData();
+            $this->htmlResponse($data);
 
-            if (empty($config_data)) {
-                $data['read_error'] = $this->messages->getFirstError();
-            }
-
-            $data['hosts'] = $this->model->getAll();
-            $data[static::$settings['admin_dir']] = $config_data['server']['dir'] ?? '';
-            $data[static::$settings['public_dir']] = $config_data['catalog']['dir'] ?? '';
+            return;
         }
 
-        $data['header'] = $this->load->controller('common/header');
-        $data['column_left'] = $this->load->controller('common/column_left');
-        $data['footer'] = $this->load->controller('common/footer');
+        $config_data = $this->saveConfigFileData();
 
-        $this->response->setOutput($this->load->view(static::$route, $data));
+        if (empty($config_data)) {
+            $data['read_error'] = $this->messages->getFirstError();
+        }
+
+        $data['hosts'] = $this->model->getAll();
+        $data[static::$settings['admin_dir']] = $config_data['server']['dir'] ?? '';
+        $data[static::$settings['public_dir']] = $config_data['catalog']['dir'] ?? '';
+
+        $this->htmlResponse($data);
     }
 
     /**
@@ -527,27 +529,31 @@ class HostManagement extends Controller
             'public' => $this->config->get(static::$settings['public_dir'])
         ];
 
-        $is_enabled = $was_enabled = !empty($this->config->get(static::$settings['status']));
+        $result = $status = !empty($this->config->get(static::$settings['status']));
         $requested = !empty($this->request->post[static::$settings['status']]);
 
-        if (!$was_enabled && $requested) {
-            $is_enabled = $this->enable($hosts, $dirs);
-        } else if ($was_enabled && $requested) {
+        if (!$status && !$requested) {
+            $this->jsonResponse();
+
+            return;
+        } else if (!$status && $requested) {
+            $result = $this->enable($hosts, $dirs);
+        } else if ($status && !$requested) {
+            $result = !$this->disable($hosts, $dirs);
+        } else {
             $this->update($hosts);
-        } else if ($was_enabled && !$requested) {
-            $is_enabled = !$this->disable($hosts, $dirs);
         }
 
-        if ($is_enabled !== $was_enabled) {
-            $this->updateSettings($dirs['admin'], $dirs['public'], $is_enabled);
+        if ($result !== $status) {
+            $this->updateSettings($dirs['admin'], $dirs['public'], $result);
         }
 
-        if ($is_enabled !== $requested) {
+        if ($result !== $requested) {
             $this->messages->error('error_status', 'status');
         }
 
         if (!$this->messages->hasErrors()) {
-            $this->messages->success('text_success');
+            $this->messages->success('text_success_files');
         }
 
         $this->jsonResponse();

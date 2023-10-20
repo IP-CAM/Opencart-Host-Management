@@ -51,16 +51,4 @@ class Validator
     {
         return $dir === '' || $this->isValidAdminDir($dir);
     }
-
-    /**
-     * Checks if server and catalog have same protcol and hostname.
-     *
-     * @param array $hosts
-     * @return bool
-     */
-    public function hasSameHosts(array $hosts): bool
-    {
-        return $hosts['server']['protocol'] === $hosts['catalog']['protocol']
-            && $hosts['server']['hostname'] === $hosts['catalog']['hostname'];
-    }
 }

@@ -4,7 +4,7 @@ $_['heading_title']        = 'Host Management';
 
 // Text
 $_['text_extension']       = 'Extensions';
-$_['text_success']         = 'You have changed Host Management!';
+$_['text_success_files']   = 'Config files have been updated!';
 $_['text_success_hosts']   = 'Hosts have been updated!';
 $_['text_close']           = 'Close';
 $_['text_edit']            = 'Manage Hosts';
@@ -46,8 +46,6 @@ $_['error_warning']        = 'Warning: Please check the form carefully for error
 $_['error_file_access']    = 'Warning: Could not get access for: %s file.!';
 $_['error_read_access']    = 'Warning: Could not get read access for: %s file.!';
 $_['error_write_access']   = 'Warning: Could not get write access for: %s file.!';
-$_['error_read']           = '<strong>Error: </strong> Reading admin config failed. Could not match
-                              protocol, hostname and directories.';
 $_['error_protocol']       = 'Invalid protocol. Only http and https are allowed.';
 $_['error_hostname']       = 'Invalid hostname. Lowercase letters, numbers, hyphens and dots are
                               allowed. It must start and end with leter or number.';
@@ -55,6 +53,8 @@ $_['error_dir']            = 'Invalid %s directory. Letters, numbers, hyphens, u
                               forward slashes are allowed.';
 $_['error_same']           = 'Server and catalog must have same protocol and hostname.';
 $_['error_default_count']  = 'Warning: You must have one default host!';
+$_['error_read']           = '<strong>Error: </strong> Reading admin config failed. Could not match
+                              protocol, hostname and directories.';
 $_['error_notice']         = 'Check your admin <i>config.php</i> file syntax.';
 $_['error_update_urls']    = 'Could not match URLs in: %s file!';
 $_['error_http_server']    = 'Could not match "HTTP_SERVER" definition in: %s file!';
@@ -63,7 +63,3 @@ $_['error_php_tag']        = 'Could not match "php" opening tag in: %s file!';
 $_['error_restore']        = 'Could not find edited section in: %s file!';
 $_['error_default_host']   = 'Could not find default host!';
 $_['error_status']         = 'Status was not changed!';
-
-// Messages
-$_['msg_error_prefix']     = 'Error: ';
-$_['msg_success_prefix']   = 'Success: ';

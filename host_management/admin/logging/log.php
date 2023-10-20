@@ -31,7 +31,7 @@ class Log
      * @param OCLog $log
      * @param string $prefix
      */
-    public function __construct(OCLog $log, string $prefix)
+    public function __construct(OCLog $log, string $prefix = '')
     {
         $this->oc_log = $log;
         $this->prefix = $prefix;

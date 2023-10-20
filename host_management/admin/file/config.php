@@ -33,7 +33,6 @@ class Config
     ];
 
     protected static array $patterns = [
-        'admin' => '/^define\s*\(\s*[\"\']APPLICATION[\"\']\s*\,\s*[\"\']Admin[\"\']\s*\);\s*$\R/m',
         'server' => '/^define\s*\(\s*[\"\']HTTP_SERVER[\'\"]\s*\,\s*[\'\"][^\'\"]+[\'\"]\s*\);\s*$\R/m',
         'catalog' => '/^define\s*\(\s*[\"\']HTTP_CATALOG[\'\"]\s*\,\s*[\'\"][^\'\"]+[\'\"]\s*\);\s*$\R/m',
         'http' => '/^(\/\/\s*HTTP)\s*$/m',
@@ -132,7 +131,10 @@ class Config
      */
     protected function isAdminConfig(string $content): bool
     {
-        return (bool)preg_match(static::$patterns['admin'], $content);
+        return (bool)preg_match(
+            '/^define\s*\(\s*[\"\']APPLICATION[\"\']\s*\,\s*[\"\']Admin[\"\']\s*\);\s*$\R/m',
+            $content
+        );
     }
 
     /**
@@ -303,7 +305,6 @@ class Config
 
         $configStr = (string)$file->fread($file->getSize());
         $file = null;
-        $hosts = [];
         $server = [];
         $catalog = [];
 
@@ -315,12 +316,10 @@ class Config
 
             return null;
         }
-        
-        $hosts['server'] = $server;
-        $hosts['catalog'] = $catalog;
-        $hosts['catalog']['dir'] ??= '';
 
-        return $hosts;
+        $catalog['dir'] ??= '';
+
+        return [ 'server' => $server, 'catalog' => $catalog ];
     }
 
     /**
