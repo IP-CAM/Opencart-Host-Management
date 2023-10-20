@@ -164,6 +164,27 @@ class Config
     }
 
     /**
+     * Generates pattern to match within edited section of config file. 
+     *
+     * @param string $content
+     * @return string
+     */
+    protected function generateRestorePattern(string $content): string
+    {
+        $pattern =
+            preg_match(static::$patterns['http'], $content) ?
+            static::$patterns['http']
+            : static::$patterns['php'];
+        $pattern = str_replace('/m', '\R^', $pattern);
+        $pattern .= str_replace([' ', '/'], ['\s*', '\/'], preg_quote(static::$comments['before']));
+        $pattern .= '.+';
+        $pattern .= str_replace([' ', '/'], ['\s*', '\/'], preg_quote(static::$comments['after']));
+        $pattern .= '$/ms';
+
+        return $pattern;
+    }
+
+    /**
      * Generates code block.
      *
      * @param array $hosts
@@ -177,29 +198,29 @@ class Config
 
         $code = static::$comments['before'] . PHP_EOL;
         $code .= <<<'EOT'
-        if (
-            (isset($_SERVER['HTTPS']) && (($_SERVER['HTTPS'] == 'on')
-            || ($_SERVER['HTTPS'] == '1')))
-            || $_SERVER['SERVER_PORT'] == 443
-        ) {
-            $hm_protocol = 'https://';
-        } elseif (
-            !empty($_SERVER['HTTP_X_FORWARDED_PROTO'])
-            && $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https'
-            || !empty($_SERVER['HTTP_X_FORWARDED_SSL'])
-            && $_SERVER['HTTP_X_FORWARDED_SSL'] == 'on'
-        ) {
-            $hm_protocol = 'https://';
-        } else {
-            $hm_protocol = 'http://';
-        }
+            if (
+                (isset($_SERVER['HTTPS']) && (($_SERVER['HTTPS'] == 'on')
+                || ($_SERVER['HTTPS'] == '1')))
+                || $_SERVER['SERVER_PORT'] == 443
+            ) {
+                $hm_protocol = 'https://';
+            } elseif (
+                !empty($_SERVER['HTTP_X_FORWARDED_PROTO'])
+                && $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https'
+                || !empty($_SERVER['HTTP_X_FORWARDED_SSL'])
+                && $_SERVER['HTTP_X_FORWARDED_SSL'] == 'on'
+            ) {
+                $hm_protocol = 'https://';
+            } else {
+                $hm_protocol = 'http://';
+            }
 
-        $hm_requested = $hm_protocol . $_SERVER['HTTP_HOST'] . '/';
-        *default*;
-        *urls*;
+            $hm_requested = $hm_protocol . $_SERVER['HTTP_HOST'] . '/';
+            *default*;
+            *urls*;
 
-        $hm_url = in_array($hm_requested, $hm_urls) ? $hm_requested : $hm_default;
-        EOT;
+            $hm_url = in_array($hm_requested, $hm_urls) ? $hm_requested : $hm_default;
+            EOT;
 
         $code = str_replace([ '*default*', '*urls*' ], [ $urls['default'], $urls['all'] ], $code);
         $code .= PHP_EOL . PHP_EOL;
@@ -220,7 +241,7 @@ class Config
     }
 
     /**
-     * Generates definitions code block
+     * Generates definitions code block.
      *
      * @param array $host
      * @param array $dirs
@@ -245,13 +266,13 @@ class Config
 // #region PUBLIC INTERFACE
 
     /**
-     * Gets error messages.
+     * Message bag getter.
      *
-     * @return array
+     * @return MessageBag
      */
-    public function getErrors(): array
+    public function getMessages(): MessageBag
     {
-        return $this->messages->getErrors();
+        return $this->messages;
     }
 
     /**
@@ -457,6 +478,32 @@ class Config
         return $this->overwrite($file, $content);
     }
 
+
+    /**
+     * Checks if config file can be restored.
+     *
+     * @param string $path
+     * @return boolean
+     */
+    public function canRestore(string $path): bool
+    {
+        $file = $this->getFileObj($path, 'r+');
+
+        if (!$file) return false;
+
+        $content = (string)$file->fread($file->getSize());
+
+        if (!preg_match($this->generateRestorePattern($content), $content)) {
+            $this->fileError('error_restore', $path, $file);
+
+            return false;
+        }
+
+        $file = null;
+
+        return true;
+    }
+
     /**
      * Restores config file.
      *
@@ -472,31 +519,15 @@ class Config
         if (!$file) return false;
 
         $content = (string)$file->fread($file->getSize());
-
-        $isAdmin =
-            preg_match(
-                '/^define\s*\(\s*[\"\']APPLICATION[\"\']\s*\,\s*[\"\']Admin[\"\']\s*\);\s*$\R/m',
-                $content
-            );
-
-        $search =
-            preg_match('/^\/\/\s*HTTP\s*$/m', $content) ?
-            '/^(\/\/\s*HTTP)'
-            : '/^(<\?(?:php)?)';
-        $search .= '\s*$\R^';
-        $search .= str_replace([' ', '/'], ['\s*', '\/'], preg_quote(static::$comments['before']));
-        $search .= '.+';
-        $search .= str_replace([' ', '/'], ['\s*', '\/'], preg_quote(static::$comments['after']));
-        $search .= '$/ms';
-
+        $isAdmin = $this->isAdminConfig($content);
+        $search = $this->generateRestorePattern($content);
         $replace = '$1' . PHP_EOL . $this->generateDefinitions($host, $dirs, $isAdmin);
 
         $count = 0;
         $content = preg_replace($search, $replace, $content, -1, $count);
 
         if (!$content || $count !== 1) {
-            $this->messages->error('error_restore');
-            $file = null;
+            $this->fileError('error_restore', $path, $file);
 
             return false;
         }

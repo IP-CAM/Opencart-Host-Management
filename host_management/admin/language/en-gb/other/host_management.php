@@ -41,6 +41,7 @@ $_['button_host_remove' ]  = 'Remove host';
 // Error
 $_['error_perm_other']     = 'Warning: You do not have permission to modify "other" extensions!';
 $_['error_perm_security']  = 'Warning: You do not have permission to modify security settings!';
+$_['error_install_data']   = 'Reading config data during installation failed.';
 $_['error_warning']        = 'Warning: Please check the form carefully for errors!';
 $_['error_file_access']    = 'Warning: Could not get access for: %s file.!';
 $_['error_read_access']    = 'Warning: Could not get read access for: %s file.!';
@@ -59,7 +60,7 @@ $_['error_update_urls']    = 'Could not match URLs in: %s file!';
 $_['error_http_server']    = 'Could not match "HTTP_SERVER" definition in: %s file!';
 $_['error_http_catalog']   = 'Could not match "HTTP_CATALOG" definition in: %s file!';
 $_['error_php_tag']        = 'Could not match "php" opening tag in: %s file!';
-$_['error_restore']        = 'Could not find edited section of config file!';
+$_['error_restore']        = 'Could not find edited section in: %s file!';
 $_['error_default_host']   = 'Could not find default host!';
 $_['error_status']         = 'Status was not changed!';
 

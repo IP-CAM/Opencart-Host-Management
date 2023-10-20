@@ -21,7 +21,7 @@ class HostManagement extends Controller
      *
      * @var string
      */
-    protected static string $code = 'host_management';
+    protected static string $code = 'other_host_management';
 
     /**
      * Log messages prefix.
@@ -50,9 +50,9 @@ class HostManagement extends Controller
      * @var array
      */
     protected static array $settings = [
-        'admin_dir' => 'host_management_admin_dir',
-        'public_dir' => 'host_management_public_dir',
-        'status' => 'host_management_status'
+        'admin_dir' => 'other_host_management_admin_dir',
+        'public_dir' => 'other_host_management_public_dir',
+        'status' => 'other_host_management_status'
     ];
 
     /**
@@ -116,10 +116,10 @@ class HostManagement extends Controller
 
         $this->load->language(static::$route);
 
-        $this->model = new Model($registry);
         $this->log = new Log(parent::__get('log'), static::$log_prefix);
         $this->file = new Config($this->log, new MessageBag($this->language));
         $this->messages = new MessageBag($this->language);
+        $this->model = new Model($registry);
         $this->validator = new Validator();
     }
 
@@ -149,6 +149,34 @@ class HostManagement extends Controller
     }
 
     /**
+     * Updates extension settings.
+     *
+     * @param string $admin_dir
+     * @param string $public_dir
+     * @param boolean $status
+     * @return void
+     */
+    protected function updateSettings(
+        string $admin_dir,
+        string $public_dir,
+        bool $status = false
+    ): void
+    {
+        $this->load->model('setting/setting');
+
+        $settings = [
+            static::$settings['admin_dir'] => $admin_dir,
+            static::$settings['public_dir'] => $public_dir
+        ];
+
+        if ($status) {
+            $settings[static::$settings['status']] = $status;
+        }
+
+        $this->model_setting_setting->editSetting(static::$code, $settings);
+    }
+
+    /**
      * Saves default host, it's protocol, admin and catalog directories read from admin config file.
      *
      * @return array Config data.
@@ -158,7 +186,7 @@ class HostManagement extends Controller
         $config_data = $this->file->readConfig(static::$adminPath);
 
         if (!$config_data) {
-            $this->messages->mergeErrors($this->file->getErrors());
+            $this->messages->mergeErrors($this->file->getMessages()->getErrors());
 
             return [];
         }
@@ -193,16 +221,8 @@ class HostManagement extends Controller
             return [];
         }
 
-        $this->load->model('setting/setting');
+        $this->updateSettings($config_data['server']['dir'], $config_data['catalog']['dir']);
 
-        $this->model_setting_setting->editSetting(
-            static::$code,
-            [
-                static::$settings['admin_dir'] => $config_data['server']['dir'],
-                static::$settings['public_dir'] => $config_data['catalog']['dir']
-            ]
-        );
-        
         if (!empty($this->model->getDefault())) {
             $this->model->updateDefault($config_data['server']);
         } else {
@@ -250,26 +270,6 @@ class HostManagement extends Controller
     }
 
     /**
-     * Asserts both config files are writable.
-     *
-     * @return boolean
-     */
-    protected function configFilesWritable(): bool
-    {
-        $file_paths = [ static::$adminPath, static::$publicPath ];
-
-        foreach ($file_paths as $path) {
-            if (!is_writable($path)) {
-                $this->messages->error('error_write_access', 'warning', $path);
-    
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /**
      * Enables the extension.
      *
      * @param array $hosts
@@ -289,7 +289,7 @@ class HostManagement extends Controller
             !$this->file->edit(static::$adminPath, $hosts, $dirs)
             || !$this->file->edit(static::$publicPath, $hosts, $dirs)
         ) {
-            $this->messages->mergeErrors($this->file->getErrors());
+            $this->messages->mergeErrors($this->file->getMessages()->getErrors());
 
             return false;
         }
@@ -316,7 +316,7 @@ class HostManagement extends Controller
             !$this->file->update(static::$adminPath, $hosts)
             || !$this->file->update(static::$publicPath, $hosts)
         ) {
-            $this->messages->mergeErrors($this->file->getErrors());
+            $this->messages->mergeErrors($this->file->getMessages()->getErrors());
 
             return false;
         }
@@ -349,16 +349,18 @@ class HostManagement extends Controller
             return false;
         }
 
-        if (!$this->configFilesWritable()) return false;
-
-        if (!$this->file->restore(static::$adminPath, $default_host, $dirs)) {
-            $this->messages->mergeErrors($this->file->getErrors());
-
+        if (
+            !$this->file->canRestore(static::$adminPath)
+            || !$this->file->canRestore(static::$publicPath)
+        ) {
             return false;
         }
 
-        if (!$this->file->restore(static::$publicPath, $default_host, $dirs)) {
-            $this->messages->mergeErrors($this->file->getErrors());
+        if (
+            !$this->file->restore(static::$adminPath, $default_host, $dirs)
+            || !$this->file->restore(static::$publicPath, $default_host, $dirs)
+        ) {
+            $this->messages->mergeErrors($this->file->getMessages()->getErrors());
 
             return false;
         }
@@ -385,7 +387,11 @@ class HostManagement extends Controller
 
         $this->model->install();
 
-        $this->saveConfigFileData();
+        $config_data = $this->saveConfigFileData();
+
+        if (empty($config_data)) {
+            $this->log($this->lanugage->get('error_install_data'));
+        }
     }
 
     /**
@@ -401,18 +407,24 @@ class HostManagement extends Controller
             return;
         }
 
-        // We need to check files, OC deletes extension settings before running controller uninstall
-        if (!empty($this->config->get(static::$settings['status']))) {
-            $hosts = $this->model->getAll();
+        if (
+            !empty($this->config->get(static::$settings['status']))
+            && $this->file->canRestore(static::$adminPath)
+            && $this->file->canRestore(static::$publicPath)
+        ) {
+            $default_host = $this->model->getDefault();
             $dirs = [
                 'admin' => $this->config->get(static::$settings['admin_dir']),
                 'public' => $this->config->get(static::$settings['public_dir'])
             ];
 
-            $this->disable($hosts, $dirs);
-
-            if ($this->messages->hasErrors()) {
-                $this->log($this->messages->getFirstError());
+            $this->file->restore(static::$adminPath, $default_host, $dirs);
+            $this->file->restore(static::$publicPath, $default_host, $dirs);
+        }
+        
+        if ($this->file->getMessages()->hasErrors()) {
+            foreach ($this->file->getMessages()->getErrors() as $error) {
+                $this->log($error);
             }
         }
 
@@ -515,10 +527,9 @@ class HostManagement extends Controller
             'public' => $this->config->get(static::$settings['public_dir'])
         ];
 
-        $was_enabled = !empty($this->config->get(static::$settings['status']));
+        $is_enabled = $was_enabled = !empty($this->config->get(static::$settings['status']));
         $requested = !empty($this->request->post[static::$settings['status']]);
-        $is_enabled = $was_enabled;
-        
+
         if (!$was_enabled && $requested) {
             $is_enabled = $this->enable($hosts, $dirs);
         } else if ($was_enabled && $requested) {
@@ -528,16 +539,7 @@ class HostManagement extends Controller
         }
 
         if ($is_enabled !== $was_enabled) {
-            $this->load->model('setting/setting');
-
-            $settings = [
-                static::$settings['admin_dir'] => $dirs['admin'],
-                static::$settings['public_dir'] => $dirs['public']
-            ];
-
-            if ($is_enabled) $settings[static::$settings['status']] = true;
-
-            $this->model_setting_setting->editSetting(static::$code, $settings);
+            $this->updateSettings($dirs['admin'], $dirs['public'], $is_enabled);
         }
 
         if ($is_enabled !== $requested) {
