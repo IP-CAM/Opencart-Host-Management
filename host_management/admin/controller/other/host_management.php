@@ -7,8 +7,8 @@ use Opencart\System\Engine\Registry;
 use Opencart\Extension\HostManagement\Admin\File\Config;
 use Opencart\Extension\HostManagement\Admin\Logging\Log;
 use Opencart\Extension\HostManagement\Admin\Messaging\MessageBag;
+use Opencart\Extension\HostManagement\Admin\Repository\DatabaseRepository;
 use Opencart\Extension\HostManagement\Admin\Validation\Validator;
-use Opencart\Admin\Model\Extension\HostManagement\Other\HostManagement as Model;
 
 
 /**
@@ -29,13 +29,6 @@ class HostManagement extends Controller
      * @var string
      */
     protected static string $log_prefix = '[Extension: Host management] - ';
-
-    /**
-     * Model property name.
-     *
-     * @var string
-     */
-    protected static string $model_name = 'model_extension_host_management_other_host_management';
 
     /**
      * Extension route.
@@ -91,11 +84,11 @@ class HostManagement extends Controller
     protected MessageBag $messages;
 
     /**
-     * Model instance.
+     * Repository instance.
      *
-     * @var Model
+     * @var DatabaseRepository
      */
-    protected Model $model;
+    protected DatabaseRepository $repository;
 
     /**
      * Validator instance.
@@ -119,7 +112,7 @@ class HostManagement extends Controller
         $this->log = new Log(parent::__get('log'), static::$log_prefix);
         $this->file = new Config($this->log, new MessageBag($this->language));
         $this->messages = new MessageBag($this->language);
-        $this->model = new Model($registry);
+        $this->repository = new DatabaseRepository($registry);
         $this->validator = new Validator();
     }
 
@@ -266,10 +259,10 @@ class HostManagement extends Controller
 
         $this->updateSettings($config_data['server']['dir'], $config_data['catalog']['dir']);
 
-        if (!empty($this->model->getDefault())) {
-            $this->model->updateDefault($config_data['server']);
+        if (!empty($this->repository->getDefault())) {
+            $this->repository->updateDefault($config_data['server']);
         } else {
-            $this->model->insert([
+            $this->repository->insert([
                 'protocol' => $config_data['server']['protocol'],
                 'hostname' => $config_data['server']['hostname'],
                 'default' => true
@@ -412,7 +405,7 @@ class HostManagement extends Controller
             return;
         }
 
-        $this->model->install();
+        $this->repository->install();
 
         $config_data = $this->saveConfigFileData();
 
@@ -439,7 +432,7 @@ class HostManagement extends Controller
             && $this->file->canRestore(static::$adminPath)
             && $this->file->canRestore(static::$publicPath)
         ) {
-            $default_host = $this->model->getDefault();
+            $default_host = $this->repository->getDefault();
             $dirs = [
                 'admin' => $this->config->get(static::$settings['admin_dir']),
                 'public' => $this->config->get(static::$settings['public_dir'])
@@ -455,7 +448,7 @@ class HostManagement extends Controller
             }
         }
 
-        $this->model->uninstall();
+        $this->repository->uninstall();
     }
 
     /**
@@ -489,7 +482,7 @@ class HostManagement extends Controller
         $data['save'] =
             $this->url->link(static::$route . $separator . 'save', $user_token);
 
-        $data['hosts'] = $this->model->getAll();
+        $data['hosts'] = $this->repository->getAll();
         $data['settings'] = static::$settings;
 
         foreach (static::$settings as $setting_db_key) {
@@ -512,7 +505,7 @@ class HostManagement extends Controller
             $data['read_error'] = $this->messages->getFirstError();
         }
 
-        $data['hosts'] = $this->model->getAll();
+        $data['hosts'] = $this->repository->getAll();
         $data[static::$settings['admin_dir']] = $config_data['server']['dir'] ?? '';
         $data[static::$settings['public_dir']] = $config_data['catalog']['dir'] ?? '';
 
@@ -544,8 +537,8 @@ class HostManagement extends Controller
             return;
         }
 
-        $this->model->truncate();
-        $this->model->insertMany($hosts);
+        $this->repository->truncate();
+        $this->repository->insertMany($hosts);
 
         $this->messages->success('text_success_hosts');
 

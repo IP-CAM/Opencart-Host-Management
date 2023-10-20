@@ -1,14 +1,14 @@
 <?php
 
-namespace Opencart\Admin\Model\Extension\HostManagement\Other;
+namespace Opencart\Extension\HostManagement\Admin\Repository;
 
 use Opencart\System\Engine\Model;
 
 
 /**
- * Host management extension model.
+ * Host management extension DB repository.
  */
-class HostManagement extends Model
+class DatabaseRepository extends Model
 {
     /**
      * DB table name.
