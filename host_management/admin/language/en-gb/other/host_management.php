@@ -11,17 +11,18 @@ $_['text_edit']            = 'Manage Hosts';
 $_['text_host']            = 'Host';
 $_['text_admin']           = 'Admin';
 $_['text_public']          = 'Public';
-$_['text_dir_title']       = 'Directories';
-$_['text_dir_notice']      = 'Before enabling, check if admin and public directories are correct.';
+$_['text_usage_title']     = 'Usage';
+$_['text_usage_1']         = 'Before enabling, check if admin and public directories are correct.';
+$_['text_usage_2']         = 'Enabling the extension changes config files, disabling restores them
+                              using <strong>default</strong> host.';
+$_['text_usage_3']         = 'Disable the extension before changing <i>config.php</i> files or
+                              uninstalling this extension (recommended).';
+$_['text_usage_4']         = 'Uninstall the extension <strong>before</strong> changing admin or
+                              public directory.';
 $_['text_dir_admin']       = 'Admin directory';
 $_['text_dir_public']      = 'Public directory';
 $_['text_dir_root']        = '<i>host document root</i>';
 $_['text_status_title']    = 'Status';
-$_['text_status_notice']   = 'Enabling the extension changes config files, disabling restores them
-                              using <strong>default</strong> host.';
-$_['text_status_info']     = 'Disable the extension <strong>before</strong> operations that change
-                              or move <i>config.php</i> files (like moving admin directory), and
-                              before uninstallng this extension (recommended).';
 $_['text_hosts_title']     = 'Hosts';
 
 // Entry

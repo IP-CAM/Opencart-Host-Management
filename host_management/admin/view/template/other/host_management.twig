@@ -39,10 +39,18 @@
             <div class="card-body px-xl-4">
                 <form id="form-language" action="{{ save }}" method="post" data-oc-toggle="ajax">
                     <div class="row gx-xl-5">
-                    {% if _context[settings.admin_dir] %}
-                        <div class="col-xl-6">
-                            <h2 class="fs-4 mb-3">{{ text_dir_title }}</h2>
-                            <p class="fst-italic">{{ text_dir_notice }}</p>
+                        <div class="col-xl-6 col-xxl-4">
+                            <h2 class="fs-4 mb-3">{{ text_usage_title }}</h2>
+                            <ul class="ps-3">
+                                <li>{{ text_usage_1 }}</li>
+                                <li>{{ text_usage_2 }}</li>
+                                <li>{{ text_usage_3 }}</li>
+                                <li>{{ text_usage_4 }}</li>
+                            </ul>
+                        </div>
+                        <div class="col-xl-6 col-xxl-8 mt-3 mt-xxl-0">
+                            <h2 class="fs-4 mb-3">{{ text_status_title }}</h2>
+                            {% if _context[settings.admin_dir] %}
                             <table id="directories" class="table table-bordered">
                                 <thead>
                                     <tr class="table-active">
@@ -57,11 +65,7 @@
                                     </tr>
                                 </tbody>
                             </table>
-                        </div>
-                    {% endif %}
-                        <div class="col-xl-6 mt-3 mt-xl-0">
-                            <h2 class="fs-4 mb-3">{{ text_status_title }}</h2>
-                            <p class="fst-italic mb-2">{{ text_status_notice }}</p>
+                            {% endif %}
                             <div class="d-flex flex-wrap">
                                 <label for="input-status" class="col-form-label me-3">{{ entry_status }}</label>
                                 <div class="form-check form-switch form-switch-lg">
@@ -69,7 +73,6 @@
                                 </div>
                                 <div id="error-status" class="invalid-feedback"></div>
                             </div>
-                            <p class="mt-2">{{ text_status_info }}</p>
                         </div>
                         <div class="col-12 mt-3">
                         {% if hosts %}
