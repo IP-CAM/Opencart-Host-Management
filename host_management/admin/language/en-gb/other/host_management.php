@@ -17,8 +17,7 @@ $_['text_usage_2']         = 'Enabling the extension changes config files, disab
                               using <strong>default</strong> host.';
 $_['text_usage_3']         = 'Disable the extension before changing <i>config.php</i> files or
                               uninstalling this extension (recommended).';
-$_['text_usage_4']         = 'Uninstall the extension <strong>before</strong> changing admin or
-                              public directory.';
+$_['text_usage_4']         = 'Uninstall the extension before changing admin or public directory.';
 $_['text_dir_admin']       = 'Admin directory';
 $_['text_dir_public']      = 'Public directory';
 $_['text_dir_root']        = '<i>host document root</i>';
