@@ -178,6 +178,14 @@ class HostManagement extends Controller
         $data['column_left'] = $this->load->controller('common/column_left');
         $data['footer'] = $this->load->controller('common/footer');
 
+        $admin_path = str_replace(DIR_OPENCART, '', DIR_APPLICATION);
+        $extension_path = str_replace(DIR_OPENCART, '', DIR_EXTENSION);
+
+        $js = '<script src="' . preg_replace('/^[^\/]+\/$/', '../', $admin_path) . $extension_path;
+        $js .= 'host_management/admin/view/javascript/common.js" type="text/javascript"></script>';
+
+        $data['footer'] = str_replace('</body>', $js . '</body>', $data['footer']);
+
         $this->response->setOutput($this->load->view(static::$route, $data));
     }
 
@@ -282,14 +290,20 @@ class HostManagement extends Controller
     {
         $default_hosts = 0;
 
-        foreach ($hosts as $key => $host) { 
-            if ((bool)$host['default']) $default_hosts++;
+        foreach ($hosts as $key => $host) {
+            if (isset($host['default']) && (bool)$host['default']) $default_hosts++;
 
-            if (!$this->validator->isValidProtocol($host['protocol'])) {
+            if (
+                !isset($host['protocol'])
+                || !$this->validator->isValidProtocol($host['protocol'])
+            ) {
                 $this->messages->error('error_protocol', 'protocol_' . $key);
             }
 
-            if (!$this->validator->isValidHostname($host['hostname'])) {
+            if (
+                !isset($host['hostname'])
+                || !$this->validator->isValidHostname($host['hostname'])
+            ) {
                 $this->messages->error('error_hostname', 'hostname_' . $key);
             }
         }
@@ -528,6 +542,10 @@ class HostManagement extends Controller
         }
 
         $hosts = $this->request->post['hosts'];
+
+        array_walk($hosts, function(&$host) {
+            $host['default'] ??= false;
+        });
 
         $this->validateHosts($hosts);
 
