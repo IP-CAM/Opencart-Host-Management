@@ -78,7 +78,7 @@ class Config
      * @param SplFileObject|null $file
      * @return void
      */
-    protected function fileError(string $error, string $path, ?SplFileObject $file = null): void
+    protected function fileError(string $error, string $path, ?SplFileObject &$file = null): void
     {
         $this->messages->error($error, 'warning', $path);
 
@@ -105,13 +105,13 @@ class Config
     }
 
     /**
-     * Overwrites file contents with given contents.
+     * Overwrites file contents with given contents and closes file pointer.
      *
      * @param SplFileObject $file
      * @param string $content
      * @return bool
      */
-    protected function overwrite(SplFileObject $file, string $content): bool
+    protected function overwrite(SplFileObject &$file, string $content): bool
     {
         $file->rewind();
         $file->ftruncate(0);
