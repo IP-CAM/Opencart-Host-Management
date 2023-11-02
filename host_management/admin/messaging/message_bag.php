@@ -169,6 +169,12 @@ class MessageBag
      */
     public function getFirstError(): string
     {
-        return reset($this->error_msg) ?: '';
+        $first = reset($this->error_msg);
+
+        while (is_array($first)) {
+            $first = reset($first);
+        }
+
+        return $first ?: '';
     }
 }
